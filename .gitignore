@@ -49,7 +49,4 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Large AI model files (use LFS or external storage)
-*.onnx
-*.pb
-*.weights
+# Large AI model files are tracked via Git LFS (see .gitattributes)
