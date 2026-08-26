@@ -1,0 +1,55 @@
+# Visual Studio / .NET Core
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.vs/
+.vscode/
+*.DotSettings.user
+
+# Node.js / React Native
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+
+# Android build outputs
+**/.gradle/
+**/build/
+**/app/build/
+android/.idea/
+android/captures/
+android/local.properties
+*.apk
+*.aab
+
+# iOS build outputs
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/*.xcuserdata
+
+# Fastlane
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# Temporary / Scratch
+*.log
+.system_generated/
+scratch/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Large AI model files (use LFS or external storage)
+*.onnx
+*.pb
+*.weights
