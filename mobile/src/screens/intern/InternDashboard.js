@@ -1,26 +1,26 @@
 import React, {useCallback, useState} from 'react';
 import {View, ScrollView, StyleSheet, RefreshControl} from 'react-native';
 import {Text, Button, ActivityIndicator} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useFocusEffect} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import AppHeader from '../../components/AppHeader';
 import StatusBadge from '../../components/StatusBadge';
 import {getInternProfile, getTodayRecord} from '../../api/apiClient';
 import {useAuth} from '../../context/AuthContext';
+import {formatTimePKT} from '../../utils/timeUtils';
 
-const TimeCard = ({label, time, status, icon}) => (
+const TimeCard = ({label, time, status, iconName = 'clock-outline', iconColor}) => (
   <View style={styles.timeCard}>
-    <Text style={styles.timeCardIcon}>{icon}</Text>
+    <MaterialCommunityIcons name={iconName || 'clock-outline'} size={22} color={iconColor} style={{marginBottom: 2}} />
     <Text style={styles.timeCardLabel}>{label}</Text>
     {time ? (
       <>
-        <Text style={styles.timeCardTime}>
-          {new Date(time).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-        </Text>
+        <Text style={styles.timeCardTime}>{formatTimePKT(time)}</Text>
         <StatusBadge status={status} size="sm" />
       </>
     ) : (
-      <Text style={styles.timeCardNone}>—</Text>
+      <Text style={styles.timeCardNone}>�</Text>
     )}
   </View>
 );
@@ -60,27 +60,30 @@ export default function InternDashboard({navigation}) {
         style={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); load();}} />}>
 
-        <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.banner}>
-          <Text style={styles.bannerGreet}>Hello, {user?.firstName}! 👋</Text>
+        <LinearGradient colors={['#047857', '#064E3B']} style={styles.banner}>
+          <Text style={styles.bannerGreet}>Hello, {user?.firstName}!</Text>
           <Text style={styles.bannerDate}>{new Date().toDateString()}</Text>
           {profile?.shift && (
             <View style={styles.shiftBadge}>
-              <Text style={styles.shiftText}>⏰ {profile.shift.name}</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                <MaterialCommunityIcons name="clock-outline" size={16} color="#fff" />
+                <Text style={styles.shiftText}>{profile.shift.name}</Text>
+              </View>
               <Text style={styles.shiftTimes}>
-                {profile.shift.checkInStart} – {profile.shift.checkOutStart}
+                {profile.shift.checkInStart} � {profile.shift.checkOutStart} (PKT)
               </Text>
             </View>
           )}
         </LinearGradient>
 
         {loading ? (
-          <ActivityIndicator color="#11998e" style={styles.loader} />
+          <ActivityIndicator color="#047857" style={styles.loader} />
         ) : (
           <>
-            {/* One-time initial face registration */}
+            {/* One-time initial face registration if not enrolled yet */}
             {!profile?.hasFace && (
               <View style={styles.warningBox}>
-                <Text style={styles.warningIcon}>⚠️</Text>
+                <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#DC2626" />
                 <View style={styles.warningText}>
                   <Text style={styles.warningTitle}>Face Not Registered</Text>
                   <Text style={styles.warningDesc}>
@@ -107,43 +110,44 @@ export default function InternDashboard({navigation}) {
                 </View>
                 <View style={styles.timeCardsRow}>
                   <TimeCard
-                    icon="🟢"
+                    iconName="login"
+                    iconColor="#16A34A"
                     label="Check In"
                     time={today.checkInTime}
                     status={today.checkInStatus}
                   />
                   <View style={styles.timeDivider} />
                   <TimeCard
-                    icon="🔴"
+                    iconName="logout"
+                    iconColor="#047857"
                     label="Check Out"
                     time={today.checkOutTime}
                     status={today.checkOutStatus}
                   />
                 </View>
-                {/* Verifications */}
                 <View style={styles.verifyRow}>
                   <Text style={styles.verifyItem}>
-                    {today.checkInFace ? '🔒 Face ✓' : '🔓 Face ✗'}
+                    Face: {today.faceVerified ? 'Verified' : 'Failed'}
                   </Text>
                   <Text style={styles.verifyItem}>
-                    {today.checkInGeo ? '📍 GPS ✓' : '📍 GPS ✗'}
+                    Geo: {today.geoVerified ? 'In Range' : 'Out of Range'}
                   </Text>
                 </View>
               </View>
             ) : (
               <View style={styles.noRecordBox}>
-                <Text style={styles.noRecordIcon}>📋</Text>
-                <Text style={styles.noRecordText}>No attendance recorded today</Text>
+                <MaterialCommunityIcons name="clipboard-text-outline" size={40} color="#78716C" style={{marginBottom: 8}} />
+                <Text style={styles.noRecordText}>No attendance record for today yet.</Text>
               </View>
             )}
 
-            {/* Action Buttons */}
+            {/* Action buttons */}
             <View style={styles.actionButtons}>
               <Button
                 mode="contained"
-                icon="camera-outline"
+                icon="camera"
                 disabled={!canCheckIn || !profile?.hasFace}
-                style={[styles.actionBtn, {backgroundColor: '#4CAF50'}]}
+                style={[styles.actionBtn, {backgroundColor: canCheckIn && profile?.hasFace ? '#16A34A' : '#D1D5DB'}]}
                 contentStyle={styles.actionBtnContent}
                 labelStyle={styles.actionBtnLabel}
                 onPress={() => navigation.navigate('MarkAttendance', {mode: 'checkin'})}>
@@ -151,9 +155,9 @@ export default function InternDashboard({navigation}) {
               </Button>
               <Button
                 mode="contained"
-                icon="camera-outline"
+                icon="camera"
                 disabled={!canCheckOut || !profile?.hasFace}
-                style={[styles.actionBtn, {backgroundColor: '#FF5252'}]}
+                style={[styles.actionBtn, {backgroundColor: canCheckOut && profile?.hasFace ? '#047857' : '#D1D5DB'}]}
                 contentStyle={styles.actionBtnContent}
                 labelStyle={styles.actionBtnLabel}
                 onPress={() => navigation.navigate('MarkAttendance', {mode: 'checkout'})}>
@@ -164,10 +168,13 @@ export default function InternDashboard({navigation}) {
             {/* Department info */}
             {profile?.department && (
               <View style={styles.deptCard}>
-                <Text style={styles.deptTitle}>🏢 My Department</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                  <MaterialCommunityIcons name="domain" size={18} color="#047857" />
+                  <Text style={styles.deptTitle}>My Department</Text>
+                </View>
                 <Text style={styles.deptName}>{profile.department.name}</Text>
                 <Text style={styles.deptCoords}>
-                  📍 {profile.department.latitude.toFixed(4)}, {profile.department.longitude.toFixed(4)}
+                  Lat/Lng: {profile.department.latitude.toFixed(4)}, {profile.department.longitude.toFixed(4)}
                 </Text>
                 <Text style={styles.deptRadius}>
                   Geo-fence: {profile.department.radiusMeters}m radius
@@ -182,57 +189,62 @@ export default function InternDashboard({navigation}) {
 }
 
 const styles = StyleSheet.create({
-  root:     {flex: 1, backgroundColor: '#0D0E1A'},
+  root:     {flex: 1, backgroundColor: '#FBF9F5'},
   scroll:   {flex: 1},
   banner: {
     margin: 16,
     borderRadius: 16,
     padding: 24,
+    elevation: 3,
   },
   bannerGreet:  {color: '#fff', fontSize: 22, fontWeight: '800'},
-  bannerDate:   {color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 2},
+  bannerDate:   {color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2},
   shiftBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 10,
     padding: 10,
     marginTop: 12,
   },
   shiftText:   {color: '#fff', fontSize: 13, fontWeight: '700'},
-  shiftTimes:  {color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2},
+  shiftTimes:  {color: 'rgba(255,255,255,0.9)', fontSize: 11, marginTop: 2},
   loader:      {marginTop: 40},
   warningBox: {
     flexDirection: 'row',
-    backgroundColor: '#FF525215',
+    backgroundColor: '#FEF2F2',
     borderRadius: 12,
     marginHorizontal: 16,
     marginBottom: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#FF525244',
+    borderColor: '#FECACA',
     alignItems: 'center',
     gap: 10,
   },
-  warningIcon:  {fontSize: 24},
   warningText:  {flex: 1},
-  warningTitle: {color: '#FF5252', fontWeight: '700', fontSize: 13},
-  warningDesc:  {color: '#8B8DAA', fontSize: 11, marginTop: 2},
-  warningBtn:   {backgroundColor: '#FF5252'},
+  warningTitle: {color: '#DC2626', fontWeight: '700', fontSize: 13},
+  warningDesc:  {color: '#7F1D1D', fontSize: 11, marginTop: 2},
+  warningBtn:   {backgroundColor: '#DC2626'},
   sectionTitle: {
-    color: '#E8EAF6',
-    fontSize: 15,
+    color: '#1C1917',
+    fontSize: 16,
     fontWeight: '700',
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 10,
   },
   statusCard: {
-    backgroundColor: '#13152A',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginHorizontal: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2A2C45',
+    borderColor: '#EAE2D5',
     overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
   },
   statusHeader: {
     flexDirection: 'row',
@@ -240,9 +252,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2C45',
+    borderBottomColor: '#EAE2D5',
   },
-  statusLabel:  {color: '#8B8DAA', fontSize: 13},
+  statusLabel:  {color: '#78716C', fontSize: 13, fontWeight: '600'},
   timeCardsRow: {flexDirection: 'row'},
   timeCard: {
     flex: 1,
@@ -250,71 +262,47 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 4,
   },
-  timeCardIcon:  {fontSize: 20},
-  timeCardLabel: {color: '#8B8DAA', fontSize: 11, fontWeight: '600', textTransform: 'uppercase'},
-  timeCardTime:  {color: '#E8EAF6', fontSize: 18, fontWeight: '800'},
-  timeCardNone:  {color: '#3D3F5C', fontSize: 22},
-  timeDivider:   {width: 1, backgroundColor: '#2A2C45'},
+  timeCardLabel: {color: '#78716C', fontSize: 11, fontWeight: '600', textTransform: 'uppercase'},
+  timeCardTime:  {color: '#1C1917', fontSize: 18, fontWeight: '800'},
+  timeCardNone:  {color: '#D1D5DB', fontSize: 22},
+  timeDivider:   {width: 1, backgroundColor: '#EAE2D5'},
   verifyRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 20,
     padding: 12,
-    backgroundColor: '#1A1C33',
+    backgroundColor: '#FAF7F0',
     borderTopWidth: 1,
-    borderTopColor: '#2A2C45',
+    borderTopColor: '#EAE2D5',
   },
-  verifyItem:    {color: '#8B8DAA', fontSize: 12},
+  verifyItem:    {color: '#78716C', fontSize: 12, fontWeight: '500'},
   noRecordBox: {
     alignItems: 'center',
-    backgroundColor: '#13152A',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginHorizontal: 16,
     padding: 30,
     borderWidth: 1,
-    borderColor: '#2A2C45',
+    borderColor: '#EAE2D5',
+    elevation: 2,
   },
-  noRecordIcon:  {fontSize: 40, marginBottom: 10},
-  noRecordText:  {color: '#8B8DAA', fontSize: 14},
+  noRecordText:  {color: '#78716C', fontSize: 14},
   actionButtons: {flexDirection: 'row', marginHorizontal: 16, gap: 12, marginTop: 16, marginBottom: 16},
-  actionBtn:     {flex: 1, borderRadius: 12},
+  actionBtn:     {flex: 1, borderRadius: 12, elevation: 2},
   actionBtnContent: {paddingVertical: 6},
   actionBtnLabel:   {fontWeight: '700', color: '#fff'},
-  faceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#13152A',
-    borderRadius: 14,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#2A2C45',
-  },
-  faceCardInfo: {flex: 1},
-  faceCardTitle: {color: '#E8EAF6', fontSize: 14, fontWeight: '700'},
-  faceCardSub: {color: '#4CAF50', fontSize: 12, marginTop: 2, fontWeight: '600'},
-  reRegisterBtn: {
-    borderColor: '#6C63FF',
-    borderRadius: 8,
-  },
-  reRegisterBtnLabel: {
-    color: '#6C63FF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
   deptCard: {
-    backgroundColor: '#13152A',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginHorizontal: 16,
     marginBottom: 24,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#2A2C45',
+    borderColor: '#EAE2D5',
+    elevation: 2,
   },
-  deptTitle:   {color: '#8B8DAA', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6},
-  deptName:    {color: '#E8EAF6', fontSize: 15, fontWeight: '700'},
-  deptCoords:  {color: '#4CAF50', fontSize: 12, fontFamily: 'monospace', marginTop: 4},
-  deptRadius:  {color: '#8B8DAA', fontSize: 12, marginTop: 2},
+  deptTitle:    {color: '#047857', fontSize: 13, fontWeight: '700'},
+  deptName:     {color: '#1C1917', fontSize: 16, fontWeight: '700', marginTop: 4},
+  deptCoords:   {color: '#78716C', fontSize: 12, marginTop: 4},
+  deptRadius:   {color: '#16A34A', fontSize: 12, marginTop: 2, fontWeight: '600'},
 });

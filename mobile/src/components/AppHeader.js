@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, StyleSheet} from 'react-native';
+import {StyleSheet} from 'react-native';
 import {Appbar, Text} from 'react-native-paper';
 
 export default function AppHeader({title, navigation, showBack = false, onBack}) {
@@ -9,7 +9,6 @@ export default function AppHeader({title, navigation, showBack = false, onBack})
     } else if (navigation?.canGoBack && navigation.canGoBack()) {
       navigation.goBack();
     } else if (navigation?.navigate) {
-      // Fallback if no history to go back to
       try {
         navigation.navigate('InternDash');
       } catch (e) {
@@ -21,11 +20,11 @@ export default function AppHeader({title, navigation, showBack = false, onBack})
   return (
     <Appbar.Header style={styles.header} elevated>
       {showBack ? (
-        <Appbar.BackAction onPress={handleBack} color="#E8EAF6" />
+        <Appbar.BackAction onPress={handleBack} color="#1C1917" />
       ) : (
         <Appbar.Action
           icon="menu"
-          color="#E8EAF6"
+          color="#1C1917"
           onPress={() => navigation?.openDrawer?.()}
         />
       )}
@@ -42,15 +41,15 @@ export default function AppHeader({title, navigation, showBack = false, onBack})
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: '#13152A',
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2C45',
+    borderBottomColor: '#EAE2D5',
   },
   title: {
-    color: '#E8EAF6',
+    color: '#1C1917',
     fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 });

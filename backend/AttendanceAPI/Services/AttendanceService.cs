@@ -41,6 +41,36 @@ namespace AttendanceAPI.Services
             if (string.IsNullOrEmpty(intern.FaceDescriptor))
                 return (false, "Face not registered. Please register face first.", null);
 
+            // 1b. Persist photo URL before any verification (captures failed attempts too)
+            var photoToPersist = req.PhotoUrl ?? (req.Type == "checkout" ? req.CheckOutPhotoUrl : req.CheckInPhotoUrl);
+            if (!string.IsNullOrEmpty(photoToPersist))
+            {
+                var photoToday = AttendanceAPI.Helpers.PakistanTime.Today;
+                var photoRecord = await _db.AttendanceRecords
+                    .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == photoToday);
+
+                if (photoRecord == null)
+                {
+                    photoRecord = new AttendanceRecord
+                    {
+                        UserId        = userId,
+                        Date          = photoToday,
+                        OverallStatus = AttendanceOverallStatus.Absent
+                    };
+                    _db.AttendanceRecords.Add(photoRecord);
+                }
+
+                if (req.Type == "checkout")
+                    photoRecord.CheckOutPhotoUrl = photoToPersist;
+                else
+                    photoRecord.CheckInPhotoUrl = photoToPersist;
+
+                photoRecord.UpdatedAt = DateTime.UtcNow;
+
+                try { await _db.SaveChangesAsync(); }
+                catch { /* Ignore if record already exists due to race condition */ }
+            }
+
             // 2. Active Liveness Challenge Check
             if (!req.LivenessPassed)
             {
@@ -96,9 +126,9 @@ namespace AttendanceAPI.Services
             Console.WriteLine($"[Audit Log] Intern: {intern.Username} | Challenge: {req.LivenessChallenge ?? "Completed"} | SpoofScore: {spoofScore:F3} | FaceDist: {faceDistance:F3} | Geo: OK | Result: Approved");
 
             // 4. Get attendance record for check-in / check-out
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var now     = DateTime.UtcNow;
-            var timeNow = TimeOnly.FromDateTime(now);
+            var today   = AttendanceAPI.Helpers.PakistanTime.Today;
+            var now     = AttendanceAPI.Helpers.PakistanTime.Now;
+            var timeNow = AttendanceAPI.Helpers.PakistanTime.TimeNow;
             var shift   = intern.Shift;
             AttendanceRecord? record;
 
@@ -121,6 +151,10 @@ namespace AttendanceAPI.Services
 
                 if (record.CheckOutTime.HasValue)
                     return (false, "Already checked out today.", null);
+
+                var outPhoto = req.CheckOutPhotoUrl ?? req.PhotoUrl ?? req.CheckInPhotoUrl;
+                if (!string.IsNullOrEmpty(outPhoto))
+                    record.CheckOutPhotoUrl = outPhoto;
 
                 record.CheckOutTime         = now;
                 record.CheckOutFaceVerified = true;
@@ -153,6 +187,12 @@ namespace AttendanceAPI.Services
                     };
                     _db.AttendanceRecords.Add(record);
                 }
+
+                // Always update the photo URL on every attempt (failed or successful)
+                // so the mentor always sees who physically stood in front of the camera.
+                var inPhoto = req.CheckInPhotoUrl ?? req.PhotoUrl;
+                if (!string.IsNullOrEmpty(inPhoto))
+                    record.CheckInPhotoUrl = inPhoto;
 
                 if (record.CheckInTime.HasValue)
                     return (false, "Already checked in today.", null);
@@ -187,12 +227,12 @@ namespace AttendanceAPI.Services
 
         public async Task<List<AttendanceRecordDto>> GetInternHistoryAsync(int userId)
         {
-            return await _db.AttendanceRecords
+            var records = await _db.AttendanceRecords
                 .Where(a => a.UserId == userId)
                 .Include(a => a.User)
                 .OrderByDescending(a => a.Date)
-                .Select(a => MapToDto(a))
                 .ToListAsync();
+            return records.Select(MapToDto).ToList();
         }
 
         public async Task<List<AttendanceRecordDto>> GetAttendanceByMentorAsync(int mentorId, DateOnly? date)
@@ -204,11 +244,14 @@ namespace AttendanceAPI.Services
             if (date.HasValue)
                 query = query.Where(a => a.Date == date.Value);
 
-            return await query
+            // Materialise first so MapToDto (a static C# method) runs in-memory.
+            // This ensures CheckInPhotoUrl and all other fields are correctly populated.
+            var records = await query
                 .OrderByDescending(a => a.Date)
                 .ThenBy(a => a.User.FirstName)
-                .Select(a => MapToDto(a))
                 .ToListAsync();
+
+            return records.Select(MapToDto).ToList();
         }
 
         // ─── Face Verification ────────────────────────────────────────────────
@@ -298,7 +341,9 @@ namespace AttendanceAPI.Services
             CheckInFaceVerified = a.CheckInFaceVerified,
             CheckInGeoVerified  = a.CheckInGeoVerified,
             CheckOutFaceVerified = a.CheckOutFaceVerified,
-            CheckOutGeoVerified = a.CheckOutGeoVerified
+            CheckOutGeoVerified = a.CheckOutGeoVerified,
+            CheckInPhotoUrl     = a.CheckInPhotoUrl,
+            CheckOutPhotoUrl    = a.CheckOutPhotoUrl
         };
     }
 }

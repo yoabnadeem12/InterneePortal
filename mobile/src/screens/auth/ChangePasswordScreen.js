@@ -5,217 +5,313 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   Alert,
 } from 'react-native';
-import {
-  Text,
-  TextInput,
-  Button,
-  HelperText,
-} from 'react-native-paper';
+import {Text, TextInput, Button, HelperText} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAuth} from '../../context/AuthContext';
 import {changePassword} from '../../api/apiClient';
 
 export default function ChangePasswordScreen() {
-  const {user, updateUserData, logout} = useAuth();
+  const {user, logout} = useAuth();
+  const isFirstLogin = user?.mustChangePassword === true;
+
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword]         = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPass, setShowPass]               = useState(false);
+  const [showCurrent, setShowCurrent]         = useState(false);
+  const [showNew, setShowNew]                 = useState(false);
+  const [showConfirm, setShowConfirm]         = useState(false);
   const [loading, setLoading]                 = useState(false);
-  const [error, setError]                     = useState('');
+  const [errors, setErrors]                   = useState({});
 
-  const handleSetPassword = async () => {
-    setError('');
+  const validate = () => {
+    const e = {};
+    // Only require current password when it's NOT a forced first-login reset
+    if (!isFirstLogin && !currentPassword.trim()) e.current = 'Current password is required';
+    if (!newPassword.trim())     e.new     = 'New password is required';
+    else if (newPassword.length < 6) e.new  = 'Password must be at least 6 characters';
+    if (newPassword !== confirmPassword) e.confirm = 'Passwords do not match';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
 
-    if (!newPassword.trim()) {
-      setError('Please enter a new password.');
-      return;
-    }
-    if (newPassword.trim().length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match. Please re-enter.');
-      return;
-    }
-
+  const handleChangePassword = async () => {
+    if (!validate()) return;
     setLoading(true);
     try {
-      await changePassword(newPassword.trim());
-      await updateUserData({mustChangePassword: false});
+      // Pass null as oldPassword on first-login so backend skips verification
+      const oldPass = isFirstLogin ? null : currentPassword.trim();
+      await changePassword(newPassword.trim(), oldPass); // apiClient: (newPassword, oldPassword)
       Alert.alert(
-        'Password Created Successfully',
-        'Your permanent password has been set. You can now use your account.',
+        'Password Changed Successfully!',
+        'Please sign in again with your new password.',
+        [{text: 'OK', onPress: () => logout()}],
       );
-    } catch (e) {
-      const msg = e?.response?.data?.message ?? 'Failed to update password. Please try again.';
-      setError(msg);
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? 'Failed to change password.';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <LinearGradient
-      colors={['#0D0E1A', '#13152A', '#1A1C33']}
-      style={styles.gradient}>
-      <StatusBar barStyle="light-content" backgroundColor="#0D0E1A" />
-      <KeyboardAvoidingView
-        style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled">
 
-          {/* Icon Header */}
+        {/* Top Header */}
+        <LinearGradient
+          colors={['#F9FAF8', '#F0FDF4', '#E6F4EA']}
+          style={styles.headerBg}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoIcon}>🔐</Text>
-            </View>
-            <Text style={styles.appName}>Create Your Password</Text>
-            <Text style={styles.tagline}>
-              Welcome, {user?.firstName ?? 'Intern'}!
+            <LinearGradient
+              colors={['#059669', '#047857']}
+              style={styles.logoCircle}>
+              <MaterialCommunityIcons name="shield-lock-outline" size={44} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.appTitle}>Change Password</Text>
+            <Text style={styles.appSubtitle}>
+              {isFirstLogin
+                ? `Welcome, ${user?.firstName}! For your security, you must set a permanent password before accessing the system.`
+                : `Hello, ${user?.firstName}! Enter your current password to set a new one.`}
             </Text>
           </View>
+        </LinearGradient>
 
-          {/* Card */}
-          <View style={styles.card}>
-            <View style={styles.securityBadge}>
-              <Text style={styles.securityBadgeText}>
-                🛡️ First-Time Security Activation
-              </Text>
-            </View>
-
-            <Text style={styles.cardSubtitle}>
-              Please set your permanent password to activate your account. You will use this password for all future logins.
-            </Text>
-
-            <TextInput
-              label="New Password *"
-              value={newPassword}
-              onChangeText={setNewPassword}
-              mode="outlined"
-              secureTextEntry={!showPass}
-              left={<TextInput.Icon icon="lock-plus" />}
-              right={
-                <TextInput.Icon
-                  icon={showPass ? 'eye-off' : 'eye'}
-                  onPress={() => setShowPass(p => !p)}
-                />
-              }
-              style={styles.input}
-              outlineStyle={styles.inputOutline}
-              textColor="#E8EAF6"
-            />
-
-            <TextInput
-              label="Confirm New Password *"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              mode="outlined"
-              secureTextEntry={!showPass}
-              left={<TextInput.Icon icon="lock-check" />}
-              style={styles.input}
-              outlineStyle={styles.inputOutline}
-              textColor="#E8EAF6"
-            />
-
-            {error ? (
-              <HelperText type="error" visible style={styles.errorText}>
-                ⚠️  {error}
-              </HelperText>
-            ) : null}
-
-            <Button
-              mode="contained"
-              onPress={handleSetPassword}
-              loading={loading}
-              disabled={loading}
-              style={styles.actionBtn}
-              contentStyle={styles.actionBtnContent}
-              labelStyle={styles.actionBtnLabel}>
-              Set Permanent Password
-            </Button>
+        {/* Form card */}
+        <View style={styles.card}>
+          <View style={styles.securityBadge}>
+            <MaterialCommunityIcons name="shield-check" size={18} color="#047857" />
+            <Text style={styles.securityBadgeText}>First-Time Security Setup</Text>
           </View>
 
-          {/* Sign Out Option */}
+          {/* Current Password — hidden on first-login temp password reset */}
+          {!isFirstLogin && (
+            <>
+              <TextInput
+                label="Current Password"
+                value={currentPassword}
+                onChangeText={t => {
+                  setCurrentPassword(t);
+                  if (errors.current) setErrors(e => ({...e, current: null}));
+                }}
+                mode="outlined"
+                secureTextEntry={!showCurrent}
+                left={<TextInput.Icon icon="lock-outline" iconColor="#047857" />}
+                right={
+                  <TextInput.Icon
+                    icon={showCurrent ? 'eye-off' : 'eye'}
+                    iconColor="#78716C"
+                    onPress={() => setShowCurrent(p => !p)}
+                  />
+                }
+                style={styles.input}
+                outlineStyle={styles.inputOutline}
+                textColor="#1C1917"
+                theme={{colors: {primary: '#047857'}}}
+              />
+              {errors.current ? (
+                <HelperText type="error" visible>
+                  {errors.current}
+                </HelperText>
+              ) : null}
+            </>
+          )}
+
+          {/* New Password */}
+          <TextInput
+            label="New Password (min 6 characters)"
+            value={newPassword}
+            onChangeText={t => {
+              setNewPassword(t);
+              if (errors.new) setErrors(e => ({...e, new: null}));
+            }}
+            mode="outlined"
+            secureTextEntry={!showNew}
+            left={<TextInput.Icon icon="lock-check-outline" iconColor="#047857" />}
+            right={
+              <TextInput.Icon
+                icon={showNew ? 'eye-off' : 'eye'}
+                iconColor="#78716C"
+                onPress={() => setShowNew(p => !p)}
+              />
+            }
+            style={styles.input}
+            outlineStyle={styles.inputOutline}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
+          />
+          {errors.new ? (
+            <HelperText type="error" visible>
+              {errors.new}
+            </HelperText>
+          ) : null}
+
+          {/* Confirm Password */}
+          <TextInput
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChangeText={t => {
+              setConfirmPassword(t);
+              if (errors.confirm) setErrors(e => ({...e, confirm: null}));
+            }}
+            mode="outlined"
+            secureTextEntry={!showConfirm}
+            left={<TextInput.Icon icon="lock-reset" iconColor="#047857" />}
+            right={
+              <TextInput.Icon
+                icon={showConfirm ? 'eye-off' : 'eye'}
+                iconColor="#78716C"
+                onPress={() => setShowConfirm(p => !p)}
+              />
+            }
+            style={styles.input}
+            outlineStyle={styles.inputOutline}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
+          />
+          {errors.confirm ? (
+            <HelperText type="error" visible>
+              {errors.confirm}
+            </HelperText>
+          ) : null}
+
+          {/* Submit */}
+          <Button
+            mode="contained"
+            onPress={handleChangePassword}
+            loading={loading}
+            disabled={loading}
+            style={styles.btn}
+            contentStyle={styles.btnContent}
+            labelStyle={styles.btnLabel}>
+            Update Password & Continue
+          </Button>
+
+          {/* Sign out link */}
           <Button
             mode="text"
             onPress={logout}
-            textColor="#8B8DAA"
-            style={styles.logoutBtn}>
-            Sign Out
+            textColor="#78716C"
+            style={styles.cancelBtn}>
+            Cancel and Sign Out
           </Button>
+        </View>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient:       {flex: 1},
-  kav:            {flex: 1},
-  scroll:         {flexGrow: 1, justifyContent: 'center', padding: 24},
-  logoContainer:  {alignItems: 'center', marginBottom: 24},
+  root: {
+    flex: 1,
+    backgroundColor: '#FBF9F5',
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+  headerBg: {
+    paddingTop: 50,
+    paddingBottom: 36,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
   logoCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#6C63FF22',
-    borderWidth: 2,
-    borderColor: '#6C63FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    elevation: 8,
+    marginBottom: 14,
+    elevation: 5,
+    shadowColor: '#047857',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
-  logoIcon:       {fontSize: 36},
-  appName: {
+  appTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#E8EAF6',
-    letterSpacing: 0.5,
+    color: '#1C1917',
+    letterSpacing: 0.3,
   },
-  tagline:        {color: '#00D2FF', fontSize: 14, fontWeight: '600', marginTop: 4},
+  appSubtitle: {
+    fontSize: 13,
+    color: '#78716C',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 18,
+    fontWeight: '500',
+  },
   card: {
-    backgroundColor: '#13152A',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginTop: -16,
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#2A2C45',
-    elevation: 8,
-    marginBottom: 16,
+    borderColor: '#EAE2D5',
+    elevation: 4,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    marginBottom: 32,
   },
   securityBadge: {
-    backgroundColor: '#6C63FF22',
-    borderRadius: 8,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#6C63FF44',
+    borderColor: '#A7F3D0',
+    marginBottom: 20,
+    gap: 8,
   },
   securityBadgeText: {
-    color: '#6C63FF',
+    color: '#047857',
     fontSize: 12,
     fontWeight: '700',
   },
-  cardSubtitle:   {color: '#8B8DAA', fontSize: 13, lineHeight: 19, marginBottom: 20},
-  input:          {marginBottom: 14, backgroundColor: '#1E2035'},
-  inputOutline:   {borderColor: '#3D3F5C', borderRadius: 10},
-  errorText:      {marginBottom: 8},
-  actionBtn: {
-    marginTop: 8,
-    borderRadius: 12,
-    backgroundColor: '#6C63FF',
-    elevation: 4,
+  input: {
+    marginBottom: 6,
+    backgroundColor: '#FAF7F0',
   },
-  actionBtnContent: {paddingVertical: 6},
-  actionBtnLabel:   {fontSize: 16, fontWeight: '700', color: '#fff'},
-  logoutBtn: {
-    marginTop: 8,
+  inputOutline: {
+    borderRadius: 12,
+    borderColor: '#E5DDD0',
+  },
+  btn: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: '#047857',
+    elevation: 3,
+    shadowColor: '#047857',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  btnContent: {
+    paddingVertical: 6,
+  },
+  btnLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cancelBtn: {
+    marginTop: 10,
   },
 });

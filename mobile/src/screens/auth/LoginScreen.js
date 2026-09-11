@@ -1,194 +1,287 @@
-import React, {useState} from 'react';
+﻿import React, {useState} from 'react';
 import {
   View,
   StyleSheet,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
 } from 'react-native';
-import {
-  Text,
-  TextInput,
-  Button,
-  HelperText,
-  ActivityIndicator,
-} from 'react-native-paper';
+import {Text, TextInput, Button, HelperText} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAuth} from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const {login} = useAuth();
-  const [username, setUsername]   = useState('');
-  const [password, setPassword]   = useState('');
-  const [showPass, setShowPass]   = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [loginError, setLoginError]   = useState(null);
+  const [submitting, setSubmitting]   = useState(false);
+
+  const validate = () => {
+    const errs = {};
+    if (!username.trim()) errs.username = 'Username is required';
+    if (!password.trim()) errs.password = 'Password is required';
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError('Please enter username and password.');
-      return;
-    }
-    setError('');
-    setLoading(true);
+    if (!validate()) return;
+    setLoginError(null);
+    setSubmitting(true);
     try {
-      await login(username.trim(), password);
-    } catch (e) {
-      let msg = 'Login failed. Check your credentials.';
-      if (e?.response?.data?.message) {
-        msg = e.response.data.message;
-      } else if (e?.message === 'Network Error' || !e?.response) {
-        msg = 'Cannot connect to backend server. Make sure port 5000 is running and forwarded.';
+      await login(username.trim(), password.trim());
+    } catch (err) {
+      console.log('Login error:', err);
+      const serverMsg = err?.response?.data?.message;
+      if (serverMsg) {
+        setLoginError(serverMsg);
+      } else if (err?.message?.includes('Network Error')) {
+        setLoginError('Unable to connect to server. Check connection or adb reverse.');
+      } else {
+        setLoginError('Invalid credentials. Please try again.');
       }
-      setError(msg);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <LinearGradient
-      colors={['#0D0E1A', '#13152A', '#1A1C33']}
-      style={styles.gradient}>
-      <StatusBar barStyle="light-content" backgroundColor="#0D0E1A" />
-      <KeyboardAvoidingView
-        style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled">
 
-          {/* Logo / branding */}
+        {/* Top brand header */}
+        <LinearGradient
+          colors={['#F9FAF8', '#F0FDF4', '#E6F4EA']}
+          style={styles.headerBg}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoIcon}>📋</Text>
+            <LinearGradient
+              colors={['#059669', '#047857']}
+              style={styles.logoCircle}>
+              <MaterialCommunityIcons name="clipboard-check-outline" size={44} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.appTitle}>PIA Attendance</Text>
+            <Text style={styles.appSubtitle}>Smart Biometric Verification Portal</Text>
+          </View>
+        </LinearGradient>
+
+        {/* Form card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Sign In to Your Account</Text>
+
+          {loginError ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{loginError}</Text>
             </View>
-            <Text style={styles.appName}>PIA Attendance</Text>
-            <Text style={styles.tagline}>Intern Management System</Text>
+          ) : null}
+
+          {/* Username */}
+          <TextInput
+            label="Username"
+            value={username}
+            onChangeText={t => {
+              setUsername(t);
+              if (fieldErrors.username) setFieldErrors(e => ({...e, username: null}));
+            }}
+            mode="outlined"
+            autoCapitalize="none"
+            autoCorrect={false}
+            left={<TextInput.Icon icon="account" iconColor="#047857" />}
+            style={styles.input}
+            outlineStyle={styles.inputOutline}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
+          />
+          {fieldErrors.username ? (
+            <HelperText type="error" visible>
+              {fieldErrors.username}
+            </HelperText>
+          ) : null}
+
+          {/* Password */}
+          <TextInput
+            label="Password"
+            value={password}
+            onChangeText={t => {
+              setPassword(t);
+              if (fieldErrors.password) setFieldErrors(e => ({...e, password: null}));
+            }}
+            mode="outlined"
+            secureTextEntry={!showPass}
+            left={<TextInput.Icon icon="lock" iconColor="#047857" />}
+            right={
+              <TextInput.Icon
+                icon={showPass ? 'eye-off' : 'eye'}
+                iconColor="#78716C"
+                onPress={() => setShowPass(p => !p)}
+              />
+            }
+            style={styles.input}
+            outlineStyle={styles.inputOutline}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
+          />
+          {fieldErrors.password ? (
+            <HelperText type="error" visible>
+              {fieldErrors.password}
+            </HelperText>
+          ) : null}
+
+          {/* Submit */}
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            loading={submitting}
+            disabled={submitting}
+            style={styles.btn}
+            contentStyle={styles.btnContent}
+            labelStyle={styles.btnLabel}>
+            Sign In
+          </Button>
+
+          {/* Roles hint */}
+          <View style={styles.rolesHint}>
+            <Text style={styles.rolesHintTitle}>Portals Included:</Text>
+            <Text style={styles.rolesHintItem}>� Administrator (Full Management)</Text>
+            <Text style={styles.rolesHintItem}>� Mentor (Intern Tracking & Reports)</Text>
+            <Text style={styles.rolesHintItem}>� Intern (Face AI & GPS Attendance)</Text>
           </View>
+        </View>
 
-          {/* Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Welcome Back</Text>
-            <Text style={styles.cardSubtitle}>
-              Sign in to your account to continue
-            </Text>
-
-            <TextInput
-              label="Username"
-              value={username}
-              onChangeText={setUsername}
-              mode="outlined"
-              autoCapitalize="none"
-              autoCorrect={false}
-              left={<TextInput.Icon icon="account" />}
-              style={styles.input}
-              outlineStyle={styles.inputOutline}
-              textColor="#E8EAF6"
-              placeholderTextColor="#6B6D8A"
-            />
-
-            <TextInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              mode="outlined"
-              secureTextEntry={!showPass}
-              left={<TextInput.Icon icon="lock" />}
-              right={
-                <TextInput.Icon
-                  icon={showPass ? 'eye-off' : 'eye'}
-                  onPress={() => setShowPass(p => !p)}
-                />
-              }
-              style={styles.input}
-              outlineStyle={styles.inputOutline}
-              textColor="#E8EAF6"
-            />
-
-            {error ? (
-              <HelperText type="error" visible style={styles.errorText}>
-                ⚠️  {error}
-              </HelperText>
-            ) : null}
-
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              loading={loading}
-              disabled={loading}
-              style={styles.loginBtn}
-              contentStyle={styles.loginBtnContent}
-              labelStyle={styles.loginBtnLabel}>
-              Sign In
-            </Button>
-          </View>
-
-          {/* Hint */}
-          <View style={styles.hintBox}>
-            <Text style={styles.hintTitle}>Role-based login</Text>
-            <Text style={styles.hintRow}>🛡  Admin → username: admin</Text>
-            <Text style={styles.hintRow}>👨‍🏫 Mentor → firstname.Mentor.Dept</Text>
-            <Text style={styles.hintRow}>🎓  Intern → firstname.PIA.001</Text>
-          </View>
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient:       {flex: 1},
-  kav:            {flex: 1},
-  scroll:         {flexGrow: 1, justifyContent: 'center', padding: 24},
-  logoContainer:  {alignItems: 'center', marginBottom: 32},
+  root: {
+    flex: 1,
+    backgroundColor: '#FBF9F5',
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+  headerBg: {
+    paddingTop: 60,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#6C63FF',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 8,
+    elevation: 6,
+    shadowColor: '#047857',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
   },
-  logoIcon:       {fontSize: 36},
-  appName: {
-    fontSize: 28,
+  appTitle: {
+    fontSize: 26,
     fontWeight: '800',
-    color: '#E8EAF6',
-    letterSpacing: 1,
+    color: '#1C1917',
+    letterSpacing: 0.5,
   },
-  tagline:        {color: '#8B8DAA', fontSize: 13, marginTop: 4},
+  appSubtitle: {
+    fontSize: 13,
+    color: '#78716C',
+    marginTop: 4,
+    fontWeight: '500',
+  },
   card: {
-    backgroundColor: '#13152A',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginTop: -20,
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#2A2C45',
-    elevation: 8,
-    marginBottom: 20,
-  },
-  cardTitle:      {color: '#E8EAF6', fontSize: 22, fontWeight: '700', marginBottom: 4},
-  cardSubtitle:   {color: '#8B8DAA', fontSize: 13, marginBottom: 24},
-  input:          {marginBottom: 14, backgroundColor: '#1E2035'},
-  inputOutline:   {borderColor: '#3D3F5C', borderRadius: 10},
-  errorText:      {marginBottom: 8},
-  loginBtn: {
-    marginTop: 8,
-    borderRadius: 12,
-    backgroundColor: '#6C63FF',
+    borderColor: '#EAE2D5',
     elevation: 4,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    marginBottom: 32,
   },
-  loginBtnContent: {paddingVertical: 6},
-  loginBtnLabel:   {fontSize: 16, fontWeight: '700', letterSpacing: 0.5, color: '#fff'},
-  hintBox: {
-    backgroundColor: '#1A1C33',
-    borderRadius: 12,
-    padding: 16,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1C1917',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  errorBox: {
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
-    borderColor: '#2A2C45',
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
   },
-  hintTitle:      {color: '#6C63FF', fontWeight: '700', marginBottom: 8, fontSize: 13},
-  hintRow:        {color: '#8B8DAA', fontSize: 12, marginBottom: 4},
+  errorText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  input: {
+    marginBottom: 8,
+    backgroundColor: '#FAF7F0',
+  },
+  inputOutline: {
+    borderRadius: 12,
+    borderColor: '#E5DDD0',
+  },
+  btn: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: '#047857',
+    elevation: 3,
+    shadowColor: '#047857',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  btnContent: {
+    paddingVertical: 6,
+  },
+  btnLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  rolesHint: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EAE2D5',
+  },
+  rolesHintTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78716C',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  rolesHintItem: {
+    fontSize: 12,
+    color: '#78716C',
+    marginVertical: 2,
+    fontWeight: '500',
+  },
 });

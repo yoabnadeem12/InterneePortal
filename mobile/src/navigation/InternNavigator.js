@@ -1,7 +1,7 @@
 import React from 'react';
-import {Text} from 'react-native';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 import {createStackNavigator} from '@react-navigation/stack';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import InternDashboard      from '../screens/intern/InternDashboard';
 import MarkAttendanceScreen from '../screens/intern/MarkAttendanceScreen';
 import HistoryScreen        from '../screens/intern/HistoryScreen';
@@ -10,7 +10,6 @@ import AppDrawerContent     from '../components/AppDrawerContent';
 const Drawer = createDrawerNavigator();
 const Stack  = createStackNavigator();
 
-// Dashboard stack — has MarkAttendance pushed on top
 const DashboardStack = () => (
   <Stack.Navigator screenOptions={{headerShown: false}}>
     <Stack.Screen name="InternDash"    component={InternDashboard} />
@@ -26,10 +25,11 @@ export default function InternNavigator() {
       screenOptions={{
         headerShown:      false,
         drawerType:       'front',
-        drawerStyle:      {backgroundColor: '#13152A', width: 280},
-        drawerActiveTintColor:   '#11998e',
-        drawerInactiveTintColor: '#8B8DAA',
-        drawerActiveBackgroundColor: '#11998e22',
+        drawerStyle:      {backgroundColor: '#FFFFFF', width: 280},
+        drawerActiveTintColor:   '#0D9488',
+        drawerInactiveTintColor: '#78716C',
+        drawerActiveBackgroundColor: '#CCFBF1',
+        drawerLabelStyle: {fontWeight: '600', fontSize: 14},
       }}>
 
       <Drawer.Screen
@@ -37,7 +37,7 @@ export default function InternNavigator() {
         component={DashboardStack}
         options={{
           drawerLabel: 'Dashboard',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>🏠</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="home-outline" size={22} color={color} />,
         }}
       />
       <Drawer.Screen
@@ -45,7 +45,7 @@ export default function InternNavigator() {
         component={HistoryScreen}
         options={{
           drawerLabel: 'Attendance History',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>📅</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="calendar-clock-outline" size={22} color={color} />,
         }}
       />
     </Drawer.Navigator>

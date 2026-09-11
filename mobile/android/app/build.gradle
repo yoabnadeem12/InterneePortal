@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
 
 react {
     autolinkLibrariesWithApp()
@@ -54,4 +55,15 @@ android {
 
 dependencies {
     implementation("com.facebook.react:react-android")
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Resources") }.configureEach { task ->
+        task.doFirst {
+            file("${project.layout.buildDirectory.get()}/intermediates/merged_res/debug/mergeDebugResources").mkdirs()
+            file("${project.layout.buildDirectory.get()}/intermediates/merged_res/release/mergeReleaseResources").mkdirs()
+            file("${project.layout.buildDirectory.get()}/intermediates/incremental/debug/mergeDebugResources").mkdirs()
+            file("${project.layout.buildDirectory.get()}/intermediates/incremental/release/mergeReleaseResources").mkdirs()
+        }
+    }
 }

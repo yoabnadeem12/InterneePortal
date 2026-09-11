@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   HelperText,
 } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useFocusEffect} from '@react-navigation/native';
 import AppHeader from '../../components/AppHeader';
 import {
@@ -29,7 +30,7 @@ const DropdownItem = ({item, selected, onPress}) => (
     style={[styles.dropItem, selected && styles.dropItemSelected]}
     activeOpacity={0.7}
     onPress={onPress}>
-    <Text style={[styles.dropItemText, selected && {color: '#6C63FF'}]}>
+    <Text style={[styles.dropItemText, selected && {color: '#047857', fontWeight: '700'}]}>
       {item.name}
     </Text>
   </TouchableOpacity>
@@ -140,7 +141,8 @@ export default function MentorFormScreen({navigation, route}) {
             mode="outlined"
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
           {errors.firstName ? <HelperText type="error">{errors.firstName}</HelperText> : null}
 
@@ -151,7 +153,8 @@ export default function MentorFormScreen({navigation, route}) {
             mode="outlined"
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
 
           <TextInput
@@ -163,16 +166,17 @@ export default function MentorFormScreen({navigation, route}) {
             autoCapitalize="none"
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
 
           <Text style={styles.sectionTitle}>Department</Text>
           {deptsLoading ? (
-            <ActivityIndicator color="#6C63FF" />
+            <ActivityIndicator color="#047857" />
           ) : (
             <>
               <TouchableOpacity
-                style={[styles.dropdown, errors.dept && {borderColor: '#FF5252'}]}
+                style={[styles.dropdown, errors.dept && {borderColor: '#DC2626'}]}
                 activeOpacity={0.8}
                 onPress={() => {
                   if (!showDropdown) fetchDepts();
@@ -181,7 +185,7 @@ export default function MentorFormScreen({navigation, route}) {
                 <Text style={styles.dropdownValue}>
                   {selectedDept?.name ?? 'Select Department...'}
                 </Text>
-                <Text style={styles.dropdownArrow}>{showDropdown ? '▲' : '▼'}</Text>
+                <MaterialCommunityIcons name={showDropdown ? 'chevron-up' : 'chevron-down'} size={18} color="#78716C" />
               </TouchableOpacity>
               {errors.dept ? <HelperText type="error">{errors.dept}</HelperText> : null}
               {showDropdown && (
@@ -209,19 +213,21 @@ export default function MentorFormScreen({navigation, route}) {
             right={
               <TextInput.Icon
                 icon={showPass ? 'eye-off' : 'eye'}
+                iconColor="#78716C"
                 onPress={() => setShowPass(p => !p)}
               />
             }
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
           {errors.password ? <HelperText type="error">{errors.password}</HelperText> : null}
 
           {isEdit && (
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Account Active</Text>
-              <Switch value={isActive} onValueChange={setIsActive} color="#6C63FF" />
+              <Switch value={isActive} onValueChange={setIsActive} color="#047857" />
             </View>
           )}
 
@@ -242,20 +248,20 @@ export default function MentorFormScreen({navigation, route}) {
 }
 
 const styles = StyleSheet.create({
-  root:          {flex: 1, backgroundColor: '#0D0E1A'},
+  root:          {flex: 1, backgroundColor: '#FBF9F5'},
   scroll:        {padding: 16, paddingBottom: 40},
   previewBox: {
-    backgroundColor: '#1E2035',
-    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
     padding: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#6C63FF44',
+    borderColor: '#A7F3D0',
   },
-  previewLabel:    {color: '#6C63FF', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase'},
-  previewUsername: {color: '#E8EAF6', fontSize: 15, fontWeight: '700', fontFamily: 'monospace'},
+  previewLabel:    {color: '#047857', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase'},
+  previewUsername: {color: '#1C1917', fontSize: 15, fontWeight: '700', fontFamily: 'monospace'},
   sectionTitle: {
-    color: '#8B8DAA',
+    color: '#047857',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -263,13 +269,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 20,
   },
-  input:         {marginBottom: 6, backgroundColor: '#13152A'},
-  outline:       {borderColor: '#3D3F5C', borderRadius: 10},
+  input:         {marginBottom: 6, backgroundColor: '#FAF7F0'},
+  outline:       {borderColor: '#E5DDD0', borderRadius: 12},
   dropdown: {
-    backgroundColor: '#13152A',
-    borderRadius: 10,
+    backgroundColor: '#FAF7F0',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3D3F5C',
+    borderColor: '#E5DDD0',
     paddingHorizontal: 16,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -277,24 +283,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  dropdownValue: {color: '#E8EAF6', fontSize: 14},
-  dropdownArrow: {color: '#8B8DAA', fontSize: 14},
+  dropdownValue: {color: '#1C1917', fontSize: 14},
   dropList: {
-    backgroundColor: '#13152A',
-    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3D3F5C',
+    borderColor: '#EAE2D5',
     marginBottom: 12,
     overflow: 'hidden',
+    elevation: 4,
   },
   dropItem: {
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2C45',
+    borderBottomColor: '#EAE2D5',
   },
-  dropItemSelected: {backgroundColor: '#6C63FF22'},
-  dropItemText:     {color: '#E8EAF6', fontSize: 14},
+  dropItemSelected: {backgroundColor: '#D1FAE5'},
+  dropItemText:     {color: '#1C1917', fontSize: 14},
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -302,11 +308,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
   },
-  switchLabel: {color: '#E8EAF6', fontSize: 14},
+  switchLabel: {color: '#1C1917', fontSize: 14, fontWeight: '600'},
   saveBtn: {
     marginTop: 24,
     borderRadius: 12,
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#047857',
+    elevation: 2,
   },
   saveBtnContent: {paddingVertical: 6},
   saveBtnLabel:   {fontSize: 15, fontWeight: '700', color: '#fff'},

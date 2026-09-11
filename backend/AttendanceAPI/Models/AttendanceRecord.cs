@@ -25,6 +25,8 @@ namespace AttendanceAPI.Models
         public CheckInStatus CheckInStatus { get; set; } = CheckInStatus.NotYet;
         public bool CheckInFaceVerified { get; set; } = false;
         public bool CheckInGeoVerified { get; set; } = false;
+        /// <summary>Relative URL path to the photo uploaded at attendance attempt time (e.g. /uploads/photos/abc-123.jpg).</summary>
+        public string? CheckInPhotoUrl { get; set; }
         public double? CheckInLatitude { get; set; }
         public double? CheckInLongitude { get; set; }
 
@@ -33,6 +35,8 @@ namespace AttendanceAPI.Models
         public CheckOutStatus CheckOutStatus { get; set; } = CheckOutStatus.NotYet;
         public bool CheckOutFaceVerified { get; set; } = false;
         public bool CheckOutGeoVerified { get; set; } = false;
+        /// <summary>Relative or absolute URL path to the photo uploaded at check-out time.</summary>
+        public string? CheckOutPhotoUrl { get; set; }
         public double? CheckOutLatitude { get; set; }
         public double? CheckOutLongitude { get; set; }
 

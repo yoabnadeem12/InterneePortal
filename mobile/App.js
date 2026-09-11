@@ -2,6 +2,7 @@ import React from 'react';
 import {View, StyleSheet, StatusBar, ActivityIndicator} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {PaperProvider} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {AuthProvider, useAuth} from './src/context/AuthContext';
 import {appTheme} from './src/theme/theme';
@@ -18,7 +19,7 @@ function RootNavigator() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#6C63FF" size="large" />
+        <ActivityIndicator color="#047857" size="large" />
       </View>
     );
   }
@@ -48,10 +49,25 @@ function RootNavigator() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{flex: 1}}>
-      <PaperProvider theme={appTheme}>
+      <PaperProvider
+        theme={appTheme}
+        settings={{
+          icon: props => {
+            const resolvedName =
+              typeof props.name === 'string' && props.name
+                ? props.name
+                : typeof props.icon === 'string' && props.icon
+                ? props.icon
+                : typeof props.source === 'string' && props.source
+                ? props.source
+                : 'circle-outline';
+
+            return <MaterialCommunityIcons {...props} name={resolvedName} />;
+          },
+        }}>
         <AuthProvider>
           <NavigationContainer>
-            <StatusBar barStyle="light-content" backgroundColor="#0D0E1A" />
+            <StatusBar barStyle="dark-content" backgroundColor="#FBF9F5" />
             <RootNavigator />
           </NavigationContainer>
         </AuthProvider>
@@ -63,7 +79,7 @@ export default function App() {
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: '#0D0E1A',
+    backgroundColor: '#FBF9F5',
     justifyContent: 'center',
     alignItems: 'center',
   },

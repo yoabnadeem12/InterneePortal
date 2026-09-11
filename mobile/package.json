@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
+    "android": "react-native run-android --extra-params \"--project-cache-dir=C:/gh/cache\"",
     "start": "react-native start",
     "lint": "eslint ."
   },

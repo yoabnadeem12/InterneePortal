@@ -1,7 +1,7 @@
 import React from 'react';
-import {Text} from 'react-native';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 import {createStackNavigator} from '@react-navigation/stack';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import MentorDashboard        from '../screens/mentor/MentorDashboard';
 import InternListScreen       from '../screens/mentor/InternListScreen';
 import InternFormScreen       from '../screens/mentor/InternFormScreen';
@@ -26,10 +26,11 @@ export default function MentorNavigator() {
       screenOptions={{
         headerShown:      false,
         drawerType:       'front',
-        drawerStyle:      {backgroundColor: '#13152A', width: 280},
-        drawerActiveTintColor:   '#00B4DB',
-        drawerInactiveTintColor: '#8B8DAA',
-        drawerActiveBackgroundColor: '#00B4DB22',
+        drawerStyle:      {backgroundColor: '#FFFFFF', width: 280},
+        drawerActiveTintColor:   '#D97706',
+        drawerInactiveTintColor: '#78716C',
+        drawerActiveBackgroundColor: '#FEF3C7',
+        drawerLabelStyle: {fontWeight: '600', fontSize: 14},
       }}>
 
       <Drawer.Screen
@@ -37,7 +38,7 @@ export default function MentorNavigator() {
         component={MentorDashboard}
         options={{
           drawerLabel: 'Dashboard',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>📊</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={color} />,
         }}
       />
       <Drawer.Screen
@@ -45,7 +46,7 @@ export default function MentorNavigator() {
         component={InternStack}
         options={{
           drawerLabel: 'My Interns',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>🎓</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="account-school-outline" size={22} color={color} />,
         }}
       />
       <Drawer.Screen
@@ -53,7 +54,7 @@ export default function MentorNavigator() {
         component={AttendanceReportScreen}
         options={{
           drawerLabel: 'Attendance Report',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>📋</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="clipboard-text-clock-outline" size={22} color={color} />,
         }}
       />
     </Drawer.Navigator>

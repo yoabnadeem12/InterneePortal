@@ -8,6 +8,7 @@ import {
   AppState,
 } from 'react-native';
 import {Text, Button} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   Camera,
   useCameraDevice,
@@ -20,6 +21,8 @@ import AppHeader from '../../components/AppHeader';
 import {
   markAttendance,
   registerFace,
+  uploadAttendancePhoto,
+  uploadCheckInPhoto,
 } from '../../api/apiClient';
 import {
   detectFaces,
@@ -28,10 +31,10 @@ import {
 } from '../../utils/faceUtils';
 
 const CHALLENGES = [
-  { id: 'blink',      title: 'Blink Both Eyes',          icon: '👁️', instruction: 'Blink your eyes naturally' },
-  { id: 'turn_left',  title: 'Turn Head Slightly Left',  icon: '⬅️', instruction: 'Turn your head slightly to the left' },
-  { id: 'turn_right', title: 'Turn Head Slightly Right', icon: '➡️', instruction: 'Turn your head slightly to the right' },
-  { id: 'smile',      title: 'Smile at the Camera',      icon: '😊', instruction: 'Smile naturally at the camera' },
+  { id: 'blink',      title: 'Blink Both Eyes',          iconName: 'eye-outline', instruction: 'Blink your eyes naturally' },
+  { id: 'turn_left',  title: 'Turn Head Slightly Left',  iconName: 'arrow-left-circle', instruction: 'Turn your head slightly to the left' },
+  { id: 'turn_right', title: 'Turn Head Slightly Right', iconName: 'arrow-right-circle', instruction: 'Turn your head slightly to the right' },
+  { id: 'smile',      title: 'Smile at the Camera',      iconName: 'emoticon-happy-outline', instruction: 'Smile naturally at the camera' },
 ];
 
 const STEP = {
@@ -73,6 +76,10 @@ export default function MarkAttendanceScreen({navigation, route}) {
   const backDevice  = useCameraDevice('back');
   const device      = frontDevice ?? backDevice;
 
+  // Stores the server-hosted URL of the latest audit photo.
+  // Updated on every check-in attempt so mentor always sees who was present.
+  const auditPhotoUrlRef = useRef(null);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', next =>
       setIsAppForeground(next === 'active'),
@@ -96,7 +103,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
     }
   };
 
-  // ── Permissions ───────────────────────────────────────────────────────────
+  // Permissions
   const requestPermissions = async () => {
     setStep(STEP.REQUESTING_PERM);
     try {
@@ -139,10 +146,10 @@ export default function MarkAttendanceScreen({navigation, route}) {
     }
   };
 
-  // ── Core processing ───────────────────────────────────────────────────────
+  // Core processing
   const processFaceImage = async (imagePath, isPassedLiveness = false) => {
     setStep(STEP.FACE_VERIFYING);
-    setMessage('🔍 Processing face image...');
+    setMessage('Processing face image...');
 
     try {
       // 1. Fast on-device face detection check (ML Kit)
@@ -150,10 +157,10 @@ export default function MarkAttendanceScreen({navigation, route}) {
       if (!faces || faces.length === 0) {
         setStep(STEP.FACE_FAILED);
         setMessage(
-          '❌ No face detected.\n\n' +
-          '• Ensure bright, even lighting on your face\n' +
-          '• Hold camera steady at eye level\n' +
-          '• Make sure your full face is visible inside the oval',
+          'No face detected.\n\n' +
+          '� Ensure bright, even lighting on your face\n' +
+          '� Hold camera steady at eye level\n' +
+          '� Make sure your full face is visible inside the oval',
         );
         return;
       }
@@ -166,15 +173,13 @@ export default function MarkAttendanceScreen({navigation, route}) {
           livenessSuccess = true;
           setChallengePassed(true);
         } else {
-          // If not achieved yet, give helpful prompt
           livenessStateRef.current.attempts += 1;
-          if (livenessStateRef.current.attempts > 1) {
-            // After multiple frames without movement, alert to static photo
+          if (livenessStateRef.current.attempts > 2) {
             setStep(STEP.FACE_FAILED);
             setMessage(
-              `❌ Live motion not detected for "${currentChallenge.title}".\n\n` +
-              `• Static photos and screen replays are not permitted.\n` +
-              `• Please ${currentChallenge.instruction.toLowerCase()} live in front of the camera.`,
+              `Live motion not detected for "${currentChallenge.title}".\n\n` +
+              `� Static photos and screen replays are not permitted.\n` +
+              `� Please ${currentChallenge.instruction.toLowerCase()} live in front of the camera.`,
             );
             return;
           }
@@ -182,30 +187,36 @@ export default function MarkAttendanceScreen({navigation, route}) {
       }
 
       // 2. Convert to Base64 in milliseconds
-      setMessage('📤 Preparing photo for AI verification...');
+      setMessage('Preparing photo for AI verification...');
       const base64Image = await imageUriToBase64(imagePath);
 
       if (isReg) {
         // Face Registration flow
-        setMessage('💾 Enrolling face with ArcFace AI model...');
+        setMessage('Enrolling face with ArcFace AI model...');
         await registerFace(base64Image);
         setStep(STEP.DONE);
-        setMessage('✅ Face successfully registered & enrolled!');
+        setMessage('Face successfully registered & enrolled!');
         setTimeout(handleSafeGoBack, 2000);
         return;
       }
 
       // Attendance Check-In / Check-Out flow
-      setMessage('📍 Acquiring GPS location...');
+      setMessage('Acquiring GPS location...');
       setStep(STEP.GPS_CHECKING);
 
       Geolocation.getCurrentPosition(
         async position => {
           const {latitude, longitude} = position.coords;
           setStep(STEP.MARKING);
-          setMessage('🔒 Running Anti-Spoofing & FaceNet AI verification...');
+          setMessage('Running Anti-Spoofing & FaceNet AI verification...');
 
           try {
+            if (!isReg && !auditPhotoUrlRef.current && imagePath) {
+              try {
+                const upRes = await uploadAttendancePhoto(imagePath, mode);
+                if (upRes?.data?.photoUrl) auditPhotoUrlRef.current = upRes.data.photoUrl;
+              } catch (_) {}
+            }
             const res = await markAttendance({
               type: mode,
               latitude,
@@ -213,20 +224,23 @@ export default function MarkAttendanceScreen({navigation, route}) {
               faceDescriptor: base64Image,
               livenessChallenge: currentChallenge?.id ?? 'blink',
               livenessPassed: true,
+              checkInPhotoUrl: mode === 'checkin' ? auditPhotoUrlRef.current : undefined,
+              checkOutPhotoUrl: mode === 'checkout' ? auditPhotoUrlRef.current : undefined,
+              photoUrl: auditPhotoUrlRef.current,
             });
 
             setStep(STEP.DONE);
-            setMessage(`✅ ${res.data.message}`);
+            setMessage(`${res.data.message}`);
             setTimeout(handleSafeGoBack, 2500);
           } catch (apiErr) {
             const errMsg = apiErr?.response?.data?.message ?? 'Face verification failed.';
             setStep(STEP.FACE_FAILED);
-            setMessage(`❌ ${errMsg}`);
+            setMessage(`${errMsg}`);
           }
         },
         _err => {
           setStep(STEP.GPS_FAILED);
-          setMessage('❌ Could not get GPS location. Please turn on location services.');
+          setMessage('Could not get GPS location. Please turn on location services.');
         },
         {enableHighAccuracy: true, timeout: 15000, maximumAge: 0},
       );
@@ -234,21 +248,19 @@ export default function MarkAttendanceScreen({navigation, route}) {
       console.error('processFaceImage error:', e);
       const errMsg = e?.response?.data?.message || e?.message || 'Verification error occurred.';
       setStep(STEP.ERROR);
-      setMessage(`⚠️ ${errMsg}`);
+      setMessage(`${errMsg}`);
     }
   };
 
-  // ── Camera capture with Active Liveness Verification ───────────────────────
+  // Camera capture with Active Liveness Verification
   const captureAndProcess = async () => {
     if (!cameraRef.current) return;
 
-    // For attendance check-in/out: perform active challenge check
     if (!isReg && currentChallenge && !challengePassed) {
       setStep(STEP.CHALLENGE_ACTIVE);
-      setMessage(`👉 ${currentChallenge.instruction}...`);
+      setMessage(`${currentChallenge.instruction}...`);
 
       try {
-        // Capture initial frame
         const photo1 = await cameraRef.current.takePhoto({ qualityPrioritization: 'speed', flash: 'off' });
         const uri1 = photo1.path.startsWith('file://') ? photo1.path : `file://${photo1.path}`;
         const faces1 = await detectFaces(uri1);
@@ -257,10 +269,8 @@ export default function MarkAttendanceScreen({navigation, route}) {
           evaluateLivenessChallenge(faces1[0], currentChallenge.id, livenessStateRef.current);
         }
 
-        // Wait briefly for user movement
         await new Promise(r => setTimeout(r, 450));
 
-        // Capture second frame to verify dynamic movement
         const photo2 = await cameraRef.current.takePhoto({ qualityPrioritization: 'speed', flash: 'off' });
         const uri2 = photo2.path.startsWith('file://') ? photo2.path : `file://${photo2.path}`;
         const faces2 = await detectFaces(uri2);
@@ -273,21 +283,19 @@ export default function MarkAttendanceScreen({navigation, route}) {
         if (passed) {
           setChallengePassed(true);
           setStep(STEP.CHALLENGE_PASSED);
-          setMessage(`✅ ${currentChallenge.title} Verified!`);
+          setMessage(`${currentChallenge.title} Verified!`);
           await processFaceImage(uri2, true);
         } else {
-          // If dynamic motion was not registered (e.g. static photo)
           await processFaceImage(uri2, false);
         }
       } catch (e) {
         console.warn('Liveness capture error:', e);
         setStep(STEP.FACE_FAILED);
-        setMessage('❌ Could not complete liveness challenge. Please try again.');
+        setMessage('Could not complete liveness challenge. Please try again.');
       }
       return;
     }
 
-    // Direct capture for registration or if challenge already passed
     try {
       let photo;
       try {
@@ -305,7 +313,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
     } catch (e) {
       console.warn('Camera capture error:', e);
       setStep(STEP.FACE_FAILED);
-      setMessage('❌ Camera capture failed. Please try again.');
+      setMessage('Camera capture failed. Please try again.');
     }
   };
 
@@ -322,7 +330,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
   };
 
   const retry = () => {
-    // Pick a new random challenge on retry
+    auditPhotoUrlRef.current = null;
     if (!isReg) {
       const picked = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
       setCurrentChallenge(picked);
@@ -333,28 +341,29 @@ export default function MarkAttendanceScreen({navigation, route}) {
     setMessage(isReg ? 'Center your face in the oval frame and tap below' : 'Look at the camera and perform the live challenge below');
   };
 
-  // ── Camera state ──────────────────────────────────────────────────────────
   const isCameraActive = isFocused && isAppForeground && permGranted && [STEP.SCANNING, STEP.CHALLENGE_ACTIVE].includes(step);
   const isProcessing   = [STEP.FACE_VERIFYING, STEP.GPS_CHECKING, STEP.MARKING, STEP.REQUESTING_PERM, STEP.CHALLENGE_ACTIVE].includes(step);
 
   const titles = {checkin: 'Mark Check-In', checkout: 'Mark Check-Out', register: 'Register Face'};
 
   const stepIcons = {
-    [STEP.IDLE]:           '⏳',
-    [STEP.REQUESTING_PERM]:'🔑',
-    [STEP.SCANNING]:       '📷',
-    [STEP.CHALLENGE_ACTIVE]:'🔄',
-    [STEP.CHALLENGE_PASSED]:'✅',
-    [STEP.FACE_VERIFYING]: '🔒',
-    [STEP.FACE_SUCCESS]:   '✅',
-    [STEP.FACE_FAILED]:    '❌',
-    [STEP.GPS_CHECKING]:   '📍',
-    [STEP.GPS_SUCCESS]:    '✅',
-    [STEP.GPS_FAILED]:     '❌',
-    [STEP.MARKING]:        '📤',
-    [STEP.DONE]:           '✅',
-    [STEP.ERROR]:          '⚠️',
+    [STEP.IDLE]:            {name: 'clock-outline', color: '#78716C'},
+    [STEP.REQUESTING_PERM]: {name: 'key-outline', color: '#047857'},
+    [STEP.SCANNING]:        {name: 'camera-outline', color: '#047857'},
+    [STEP.CHALLENGE_ACTIVE]:{name: 'sync', color: '#047857'},
+    [STEP.CHALLENGE_PASSED]:{name: 'check-circle', color: '#16A34A'},
+    [STEP.FACE_VERIFYING]:  {name: 'shield-account', color: '#047857'},
+    [STEP.FACE_SUCCESS]:    {name: 'check-circle', color: '#16A34A'},
+    [STEP.FACE_FAILED]:     {name: 'close-circle', color: '#DC2626'},
+    [STEP.GPS_CHECKING]:    {name: 'map-marker-radius', color: '#047857'},
+    [STEP.GPS_SUCCESS]:     {name: 'check-circle', color: '#16A34A'},
+    [STEP.GPS_FAILED]:      {name: 'close-circle', color: '#DC2626'},
+    [STEP.MARKING]:         {name: 'cloud-upload', color: '#047857'},
+    [STEP.DONE]:            {name: 'check-decagram', color: '#16A34A'},
+    [STEP.ERROR]:           {name: 'alert-circle', color: '#DC2626'},
   };
+
+  const currentStepIcon = stepIcons[step] || {name: 'information-outline', color: '#78716C'};
 
   return (
     <View style={styles.root}>
@@ -375,9 +384,9 @@ export default function MarkAttendanceScreen({navigation, route}) {
           />
         ) : (
           <View style={styles.noCameraBox}>
-            <RNActivityIndicator color="#6C63FF" size="large" />
+            <RNActivityIndicator color="#047857" size="large" />
             <Text style={styles.noCameraText}>
-              {!permGranted ? 'Requesting permissions…' : 'No camera device found'}
+              {!permGranted ? 'Requesting permissions�' : 'No camera device found'}
             </Text>
           </View>
         )}
@@ -387,7 +396,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
           <View style={styles.faceGuide}>
             <View style={[styles.faceOval, challengePassed && styles.faceOvalSuccess]} />
             <Text style={styles.faceGuideLabel}>
-              {isReg ? 'ArcFace AI — Center Face Here' : 'Anti-Spoofing & Liveness Guard'}
+              {isReg ? 'ArcFace AI � Center Face Here' : 'Anti-Spoofing & Liveness Guard'}
             </Text>
           </View>
         )}
@@ -395,7 +404,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
         {/* Active Challenge HUD banner */}
         {!isReg && currentChallenge && (step === STEP.SCANNING || step === STEP.CHALLENGE_ACTIVE) && (
           <View style={styles.challengeBanner}>
-            <Text style={styles.challengeIcon}>{currentChallenge.icon}</Text>
+            <MaterialCommunityIcons name={currentChallenge?.iconName || 'eye-outline'} size={28} color="#047857" style={{marginRight: 12}} />
             <View style={styles.challengeTextCol}>
               <Text style={styles.challengeTitle}>Live Challenge: {currentChallenge.title}</Text>
               <Text style={styles.challengeSubtitle}>{currentChallenge.instruction}</Text>
@@ -406,7 +415,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
         {/* Processing overlay */}
         {isProcessing && (
           <View style={styles.processingOverlay}>
-            <RNActivityIndicator color="#6C63FF" size="large" />
+            <RNActivityIndicator color="#047857" size="large" />
             <Text style={styles.processingText}>{message}</Text>
           </View>
         )}
@@ -437,7 +446,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
           )}
         </View>
 
-        <Text style={styles.stepIcon}>{stepIcons[step] ?? '⏳'}</Text>
+        <MaterialCommunityIcons name={currentStepIcon?.name || 'information-outline'} size={32} color={currentStepIcon.color} style={{marginBottom: 6}} />
         {!isProcessing && <Text style={styles.statusMessage}>{message}</Text>}
 
         {/* Buttons */}
@@ -452,7 +461,6 @@ export default function MarkAttendanceScreen({navigation, route}) {
               onPress={captureAndProcess}>
               {isReg ? 'Capture & Enroll Face' : `Perform ${currentChallenge?.title ?? 'Liveness Check'}`}
             </Button>
-            {/* Gallery upload is allowed ONLY during enrollment, disabled during live attendance verification */}
             {isReg && (
               <Button
                 mode="text"
@@ -480,7 +488,7 @@ export default function MarkAttendanceScreen({navigation, route}) {
         {step === STEP.DONE && (
           <Button
             mode="contained"
-            style={[styles.captureBtn, {backgroundColor: '#4CAF50'}]}
+            style={[styles.captureBtn, {backgroundColor: '#16A34A'}]}
             labelStyle={styles.captureBtnLabel}
             onPress={handleSafeGoBack}>
             Done
@@ -494,19 +502,19 @@ export default function MarkAttendanceScreen({navigation, route}) {
 const StepDot = ({label, active, done}) => (
   <View style={styles.stepDotContainer}>
     <View style={[styles.stepDot, active && styles.stepDotActive, done && styles.stepDotDone]}>
-      <Text style={styles.stepDotText}>{done ? '✓' : ''}</Text>
+      {done ? <MaterialCommunityIcons name="check" size={14} color="#fff" /> : null}
     </View>
-    <Text style={[styles.stepDotLabel, active && {color: '#6C63FF'}]}>{label}</Text>
+    <Text style={[styles.stepDotLabel, active && {color: '#047857'}]}>{label}</Text>
   </View>
 );
 
 const StepLine = () => <View style={styles.stepLine} />;
 
 const styles = StyleSheet.create({
-  root:            {flex: 1, backgroundColor: '#0D0E1A'},
+  root:            {flex: 1, backgroundColor: '#FBF9F5'},
   cameraContainer: {flex: 1, backgroundColor: '#000', position: 'relative'},
   noCameraBox:     {flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12},
-  noCameraText:    {color: '#8B8DAA', fontSize: 14},
+  noCameraText:    {color: '#78716C', fontSize: 14},
   faceGuide: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -516,90 +524,86 @@ const styles = StyleSheet.create({
     width: 220, height: 280,
     borderRadius: 110,
     borderWidth: 3,
-    borderColor: '#6C63FF',
+    borderColor: '#047857',
     borderStyle: 'dashed',
   },
   faceOvalSuccess: {
-    borderColor: '#4CAF50',
+    borderColor: '#16A34A',
     borderStyle: 'solid',
   },
   faceGuideLabel: {
-    color: '#6C63FF',
+    color: '#047857',
     fontSize: 12,
     marginTop: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   challengeBanner: {
     position: 'absolute',
     top: 20,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(26, 29, 58, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#6C63FF',
-    shadowColor: '#6C63FF',
-    shadowOpacity: 0.3,
+    borderColor: '#047857',
+    shadowColor: '#047857',
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 6,
-  },
-  challengeIcon: {
-    fontSize: 28,
-    marginRight: 12,
   },
   challengeTextCol: {
     flex: 1,
   },
   challengeTitle: {
-    color: '#FFF',
+    color: '#1C1917',
     fontSize: 14,
     fontWeight: '700',
   },
   challengeSubtitle: {
-    color: '#A0A3BD',
+    color: '#78716C',
     fontSize: 12,
     marginTop: 2,
+    fontWeight: '500',
   },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.76)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
   },
-  processingText: {color: '#E8EAF6', fontSize: 14, textAlign: 'center', paddingHorizontal: 24},
+  processingText: {color: '#1C1917', fontSize: 14, fontWeight: '600', textAlign: 'center', paddingHorizontal: 24},
   statusPanel: {
-    backgroundColor: '#13152A',
+    backgroundColor: '#FFFFFF',
     padding: 20,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: '#2A2C45',
+    borderTopColor: '#EAE2D5',
     minHeight: 240,
     alignItems: 'center',
+    elevation: 4,
   },
   stepRow:          {flexDirection: 'row', alignItems: 'center', marginBottom: 16, width: '90%'},
   stepDotContainer: {alignItems: 'center'},
   stepDot: {
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#2A2C45',
-    borderWidth: 2, borderColor: '#3D3F5C',
+    backgroundColor: '#FAF7F0',
+    borderWidth: 2, borderColor: '#EAE2D5',
     justifyContent: 'center', alignItems: 'center',
   },
-  stepDotActive: {borderColor: '#6C63FF', backgroundColor: '#6C63FF22'},
-  stepDotDone:   {borderColor: '#4CAF50', backgroundColor: '#4CAF50'},
-  stepDotText:   {color: '#fff', fontSize: 11, fontWeight: '700'},
-  stepDotLabel:  {color: '#8B8DAA', fontSize: 8, marginTop: 4, fontWeight: '600'},
-  stepLine:      {flex: 1, height: 2, backgroundColor: '#3D3F5C'},
-  stepIcon:      {fontSize: 30, marginBottom: 6},
-  statusMessage: {color: '#E8EAF6', fontSize: 13, textAlign: 'center', lineHeight: 19},
+  stepDotActive: {borderColor: '#047857', backgroundColor: '#D1FAE5'},
+  stepDotDone:   {borderColor: '#16A34A', backgroundColor: '#16A34A'},
+  stepDotLabel:  {color: '#78716C', fontSize: 8, marginTop: 4, fontWeight: '600'},
+  stepLine:      {flex: 1, height: 2, backgroundColor: '#EAE2D5'},
+  statusMessage: {color: '#1C1917', fontSize: 13, textAlign: 'center', lineHeight: 19, fontWeight: '500'},
   actionBtnGroup: {width: '100%', alignItems: 'center', gap: 8, marginTop: 10},
-  captureBtn:         {borderRadius: 12, backgroundColor: '#6C63FF', width: '100%'},
-  captureBtnDisabled: {backgroundColor: '#3D3F5C'},
+  captureBtn:         {borderRadius: 12, backgroundColor: '#047857', width: '100%', elevation: 2},
+  captureBtnDisabled: {backgroundColor: '#D1D5DB'},
   captureBtnContent:  {paddingVertical: 8},
   captureBtnLabel:    {fontSize: 15, fontWeight: '700', color: '#fff'},
-  galleryBtnLabel:    {fontSize: 13, color: '#8B8DAA'},
-  retryBtn:           {borderRadius: 12, borderColor: '#6C63FF', width: '100%'},
+  galleryBtnLabel:    {fontSize: 13, color: '#78716C', fontWeight: '600'},
+  retryBtn:           {borderRadius: 12, borderColor: '#047857', width: '100%'},
 });

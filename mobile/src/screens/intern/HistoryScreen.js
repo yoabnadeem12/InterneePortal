@@ -1,24 +1,26 @@
 import React, {useEffect, useState} from 'react';
 import {View, FlatList, StyleSheet, RefreshControl} from 'react-native';
 import {Text, ActivityIndicator} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../components/AppHeader';
 import StatusBadge from '../../components/StatusBadge';
 import {getAttendanceHistory} from '../../api/apiClient';
+import {formatTimePKT, formatDatePKT} from '../../utils/timeUtils';
 
 const HistoryCard = ({record}) => {
   const checkInColor = {
-    Early: '#FFC107', OnTime: '#4CAF50', Late: '#FF5252', NotYet: '#9E9E9E',
-  }[record.checkInStatus] ?? '#9E9E9E';
+    Early: '#D97706', OnTime: '#16A34A', Late: '#DC2626', NotYet: '#78716C',
+  }[record.checkInStatus] ?? '#78716C';
 
   const checkOutColor = {
-    Early: '#FF5252', OnTime: '#4CAF50', Late: '#FF9800', NotYet: '#9E9E9E',
-  }[record.checkOutStatus] ?? '#9E9E9E';
+    Early: '#DC2626', OnTime: '#16A34A', Late: '#047857', NotYet: '#78716C',
+  }[record.checkOutStatus] ?? '#78716C';
 
   return (
     <View style={styles.card}>
       {/* Date row */}
       <View style={styles.cardHeader}>
-        <Text style={styles.date}>{record.date}</Text>
+        <Text style={styles.date}>{formatDatePKT(record.date)}</Text>
         <StatusBadge status={record.overallStatus} />
       </View>
 
@@ -29,12 +31,12 @@ const HistoryCard = ({record}) => {
           {record.checkInTime ? (
             <>
               <Text style={[styles.timeValue, {color: checkInColor}]}>
-                {new Date(record.checkInTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                {formatTimePKT(record.checkInTime)}
               </Text>
               <StatusBadge status={record.checkInStatus} size="sm" />
             </>
           ) : (
-            <Text style={styles.noTime}>—</Text>
+            <Text style={styles.noTime}>�</Text>
           )}
         </View>
 
@@ -45,24 +47,38 @@ const HistoryCard = ({record}) => {
           {record.checkOutTime ? (
             <>
               <Text style={[styles.timeValue, {color: checkOutColor}]}>
-                {new Date(record.checkOutTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                {formatTimePKT(record.checkOutTime)}
               </Text>
               <StatusBadge status={record.checkOutStatus} size="sm" />
             </>
           ) : (
-            <Text style={styles.noTime}>—</Text>
+            <Text style={styles.noTime}>�</Text>
           )}
         </View>
       </View>
 
       {/* Verification icons */}
       <View style={styles.verifyRow}>
-        <Text style={[styles.verifyIcon, {color: record.checkInFaceVerified ? '#4CAF50' : '#FF5252'}]}>
-          {record.checkInFaceVerified ? '🔒 Face ✓' : '🔓 Face ✗'}
-        </Text>
-        <Text style={[styles.verifyIcon, {color: record.checkInGeoVerified ? '#4CAF50' : '#FF5252'}]}>
-          {record.checkInGeoVerified ? '📍 GPS ✓' : '📍 GPS ✗'}
-        </Text>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+          <MaterialCommunityIcons
+            name="face-recognition"
+            size={16}
+            color={record.checkInFaceVerified ? '#16A34A' : '#DC2626'}
+          />
+          <Text style={[styles.verifyIcon, {color: record.checkInFaceVerified ? '#16A34A' : '#DC2626'}]}>
+            Face: {record.checkInFaceVerified ? 'Verified' : 'Failed'}
+          </Text>
+        </View>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+          <MaterialCommunityIcons
+            name="map-marker-radius"
+            size={16}
+            color={record.checkInGeoVerified ? '#16A34A' : '#DC2626'}
+          />
+          <Text style={[styles.verifyIcon, {color: record.checkInGeoVerified ? '#16A34A' : '#DC2626'}]}>
+            GPS: {record.checkInGeoVerified ? 'In Range' : 'Out of Range'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -83,7 +99,6 @@ export default function HistoryScreen({navigation}) {
 
   useEffect(() => { load(); }, []);
 
-  // Summary stats
   const total     = records.length;
   const present   = records.filter(r => r.overallStatus === 'Present').length;
   const percent   = total > 0 ? Math.round((present / total) * 100) : 0;
@@ -98,24 +113,20 @@ export default function HistoryScreen({navigation}) {
           <Text style={styles.summaryValue}>{total}</Text>
           <Text style={styles.summaryLabel}>Total Days</Text>
         </View>
+        <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, {color: '#4CAF50'}]}>{present}</Text>
+          <Text style={[styles.summaryValue, {color: '#16A34A'}]}>{present}</Text>
           <Text style={styles.summaryLabel}>Present</Text>
         </View>
+        <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, {color: '#FF5252'}]}>{total - present}</Text>
-          <Text style={styles.summaryLabel}>Absent</Text>
-        </View>
-        <View style={[styles.summaryItem, styles.percentBox]}>
-          <Text style={[styles.summaryValue, {color: percent >= 75 ? '#4CAF50' : '#FF5252'}]}>
-            {percent}%
-          </Text>
-          <Text style={styles.summaryLabel}>Attendance</Text>
+          <Text style={[styles.summaryValue, {color: '#047857'}]}>{percent}%</Text>
+          <Text style={styles.summaryLabel}>Rate</Text>
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#6C63FF" style={styles.loader} />
+        <ActivityIndicator color="#047857" style={styles.loader} />
       ) : (
         <FlatList
           data={records}
@@ -123,12 +134,12 @@ export default function HistoryScreen({navigation}) {
           renderItem={({item}) => <HistoryCard record={item} />}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); load();}} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyText}>No attendance records yet</Text>
+              <MaterialCommunityIcons name="clipboard-text-outline" size={40} color="#78716C" style={{marginBottom: 8}} />
+              <Text style={styles.emptyText}>No attendance records found</Text>
             </View>
           }
         />
@@ -138,36 +149,39 @@ export default function HistoryScreen({navigation}) {
 }
 
 const styles = StyleSheet.create({
-  root:    {flex: 1, backgroundColor: '#0D0E1A'},
+  root:    {flex: 1, backgroundColor: '#FBF9F5'},
   summary: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    backgroundColor: '#13152A',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    margin: 16,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#2A2C45',
-    overflow: 'hidden',
+    borderColor: '#EAE2D5',
+    elevation: 2,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRightWidth: 1,
-    borderRightColor: '#2A2C45',
-  },
-  percentBox:    {borderRightWidth: 0},
-  summaryValue:  {color: '#E8EAF6', fontSize: 22, fontWeight: '800'},
-  summaryLabel:  {color: '#8B8DAA', fontSize: 10, marginTop: 2},
-  loader:        {marginTop: 40},
-  list:          {paddingHorizontal: 16, paddingBottom: 20},
+  summaryItem:    {flex: 1, alignItems: 'center'},
+  summaryValue:   {fontSize: 22, fontWeight: '800', color: '#1C1917'},
+  summaryLabel:   {fontSize: 11, color: '#78716C', marginTop: 2, fontWeight: '600'},
+  summaryDivider: {width: 1, backgroundColor: '#EAE2D5'},
+  loader:  {marginTop: 40},
+  list:    {paddingHorizontal: 16, paddingBottom: 40},
   card: {
-    backgroundColor: '#13152A',
-    borderRadius: 14,
-    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2A2C45',
+    borderColor: '#EAE2D5',
     overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -175,26 +189,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2C45',
+    borderBottomColor: '#EAE2D5',
   },
-  date:          {color: '#E8EAF6', fontSize: 14, fontWeight: '700'},
-  timesRow:      {flexDirection: 'row'},
-  timeBlock:     {flex: 1, padding: 14, gap: 4, alignItems: 'center'},
-  timeLabel:     {color: '#8B8DAA', fontSize: 10, fontWeight: '700', textTransform: 'uppercase'},
-  timeValue:     {fontSize: 16, fontWeight: '800'},
-  noTime:        {color: '#3D3F5C', fontSize: 20},
-  timeDivider:   {width: 1, backgroundColor: '#2A2C45'},
+  date:        {color: '#1C1917', fontSize: 14, fontWeight: '700'},
+  timesRow:    {flexDirection: 'row', padding: 14},
+  timeBlock:   {flex: 1, alignItems: 'center', gap: 4},
+  timeLabel:   {color: '#78716C', fontSize: 11, fontWeight: '600', textTransform: 'uppercase'},
+  timeValue:   {fontSize: 16, fontWeight: '700'},
+  noTime:      {color: '#D1D5DB', fontSize: 18},
+  timeDivider: {width: 1, backgroundColor: '#EAE2D5'},
   verifyRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
+    gap: 24,
     padding: 10,
-    backgroundColor: '#1A1C33',
+    backgroundColor: '#FAF7F0',
     borderTopWidth: 1,
-    borderTopColor: '#2A2C45',
+    borderTopColor: '#EAE2D5',
   },
-  verifyIcon:    {fontSize: 11},
-  empty:         {alignItems: 'center', paddingVertical: 60},
-  emptyIcon:     {fontSize: 48, marginBottom: 12},
-  emptyText:     {color: '#8B8DAA', fontSize: 15},
+  verifyIcon: {fontSize: 12, fontWeight: '600'},
+  empty:      {alignItems: 'center', paddingTop: 60},
+  emptyText:  {color: '#78716C', fontSize: 16},
 });

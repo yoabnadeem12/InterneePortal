@@ -1,19 +1,5 @@
-/**
- * faceUtils.js
- *
- * Fast on-device face detection + image preprocessing for Server-Side FaceNet ONNX.
- *
- * 1. @react-native-ml-kit/face-detection: fast on-device face presence & active liveness challenge checks (blinks, head turns, smiles).
- * 2. imageUriToBase64: ultra-fast native Blob/FileReader conversion (<15ms).
- * 3. Deep AI recognition + Passive Anti-Spoofing runs server-side on .NET Core via Microsoft.ML.OnnxRuntime.
- */
-
 import FaceDetection from '@react-native-ml-kit/face-detection';
 
-/**
- * Fast on-device face detection with full classification & landmark capabilities.
- * @param {string} imagePath - file:// URI
- */
 export const detectFaces = async (imagePath) => {
   try {
     const faces = await FaceDetection.detect(imagePath, {
@@ -21,7 +7,7 @@ export const detectFaces = async (imagePath) => {
       landmarkMode:       'all',
       contourMode:        'none',
       classificationMode: 'all',
-      minFaceSize:        0.15,
+      minFaceSize:        0.10,
     });
     return faces || [];
   } catch (e) {
@@ -30,13 +16,6 @@ export const detectFaces = async (imagePath) => {
   }
 };
 
-/**
- * Evaluates whether a detected face fulfills the specific active liveness challenge.
- * @param {object} face - Face object from ML Kit
- * @param {string} challengeId - "blink" | "turn_left" | "turn_right" | "smile"
- * @param {object} stateRef - persistent tracking state across frames
- * @returns {boolean} Whether the challenge was successfully achieved
- */
 export const evaluateLivenessChallenge = (face, challengeId, stateRef) => {
   if (!face) return false;
 
@@ -47,39 +26,34 @@ export const evaluateLivenessChallenge = (face, challengeId, stateRef) => {
 
   switch (challengeId) {
     case 'blink': {
-      // Step 1: Detect eyes closing (< 0.35)
-      if (leftEyeOpen < 0.38 && rightEyeOpen < 0.38) {
+      // Step 1: Detect eyes closing (< 0.45)
+      if (leftEyeOpen < 0.45 || rightEyeOpen < 0.45) {
         stateRef.eyesClosedDetected = true;
       }
-      // Step 2: Detect eyes opening back up (> 0.65) after being closed
-      if (stateRef.eyesClosedDetected && (leftEyeOpen > 0.65 || rightEyeOpen > 0.65)) {
+      // Step 2: Detect eyes open (> 0.55) or after being closed
+      if (stateRef.eyesClosedDetected && (leftEyeOpen > 0.55 || rightEyeOpen > 0.55)) {
         return true;
       }
-      return false;
+      // If eyes are clearly closed or state tracked
+      if (leftEyeOpen < 0.40 && rightEyeOpen < 0.40) {
+        stateRef.eyesClosedDetected = true;
+      }
+      return stateRef.eyesClosedDetected;
     }
 
     case 'turn_left': {
-      // Head yaw turned left: yawAngle < -12 degrees
-      if (yawAngle < -12.0) {
-        return true;
-      }
-      return false;
+      // Head yaw turned left: yawAngle < -8 degrees
+      return yawAngle < -8.0;
     }
 
     case 'turn_right': {
-      // Head yaw turned right: yawAngle > 12 degrees
-      if (yawAngle > 12.0) {
-        return true;
-      }
-      return false;
+      // Head yaw turned right: yawAngle > 8 degrees
+      return yawAngle > 8.0;
     }
 
     case 'smile': {
-      // Smiling probability > 0.60
-      if (smilingProb > 0.60) {
-        return true;
-      }
-      return false;
+      // Smiling probability > 0.35
+      return smilingProb > 0.35;
     }
 
     default:
@@ -87,12 +61,6 @@ export const evaluateLivenessChallenge = (face, challengeId, stateRef) => {
   }
 };
 
-/**
- * Converts a local image file:// URI to a base64 Data URL in milliseconds.
- * Uses React Native's native Blob / FileReader implementation.
- * @param {string} imageUri - file:// URI
- * @returns {Promise<string>} Base64 image string (data:image/jpeg;base64,...)
- */
 export const imageUriToBase64 = async (imageUri) => {
   try {
     const response = await fetch(imageUri);

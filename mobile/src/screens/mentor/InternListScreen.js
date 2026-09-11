@@ -1,94 +1,93 @@
-import React, {useState, useCallback} from 'react';
+import React, {useCallback, useState} from 'react';
 import {
   View,
   FlatList,
   StyleSheet,
-  Alert,
-  RefreshControl,
   TouchableOpacity,
+  Alert,
   Modal,
   ScrollView,
 } from 'react-native';
 import {
   Text,
-  FAB,
-  Searchbar,
   ActivityIndicator,
+  Searchbar,
+  FAB,
   Chip,
   Button,
 } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useFocusEffect} from '@react-navigation/native';
 import AppHeader from '../../components/AppHeader';
 import {
   getInterns,
   deleteIntern,
+  transferIntern,
   getMentorDepartments,
   getMentorsByDepartment,
-  transferIntern,
 } from '../../api/apiClient';
 
-const SHIFT_COLORS = {1: '#6C63FF', 2: '#00B4DB'};
+const SHIFT_COLORS = {1: '#047857', 2: '#065F46'};
 
-const InternCard = ({intern, onEdit, onDelete, onTransfer}) => (
+const InternItem = ({intern, onEdit, onDelete, onTransfer}) => (
   <View style={styles.card}>
-    <View style={styles.cardLeft}>
-      <View style={[styles.avatar, {backgroundColor: SHIFT_COLORS[intern.shiftId] ?? '#6C63FF'}]}>
+    <View style={styles.cardHeader}>
+      <View style={[styles.avatar, {backgroundColor: SHIFT_COLORS[intern.shiftId] ?? '#047857'}]}>
         <Text style={styles.avatarText}>
           {intern.firstName?.[0]}{intern.lastName?.[0]}
         </Text>
       </View>
-      <View style={styles.cardInfo}>
-        <Text style={styles.name}>{intern.firstName} {intern.lastName}</Text>
-        <Text style={styles.username}>@{intern.username}</Text>
-        <Text style={styles.dept}>🏢 {intern.departmentName ?? '-'}</Text>
-        <View style={styles.badges}>
-          <Chip
-            compact
-            style={[styles.shiftChip, {backgroundColor: (SHIFT_COLORS[intern.shiftId] ?? '#6C63FF') + '22'}]}
-            textStyle={{color: SHIFT_COLORS[intern.shiftId] ?? '#6C63FF', fontSize: 10}}>
-            ⏰ {intern.shiftName ?? 'No Shift'}
-          </Chip>
-          {intern.hasFace ? (
-            <Chip compact style={styles.faceChip} textStyle={styles.faceChipText}>
-              🔒 Face ✓
-            </Chip>
-          ) : (
-            <Chip compact style={styles.noFaceChip} textStyle={styles.noFaceText}>
-              ⚠️ No Face
+      <View style={styles.info}>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>
+            {intern.firstName} {intern.lastName}
+          </Text>
+          {intern.shift && (
+            <Chip
+              style={[styles.shiftChip, {backgroundColor: (SHIFT_COLORS[intern.shiftId] ?? '#047857') + '20'}]}
+              textStyle={{color: SHIFT_COLORS[intern.shiftId] ?? '#047857', fontSize: 10, fontWeight: '700'}}>
+              {intern.shift.name}
             </Chip>
           )}
         </View>
+        <Text style={styles.username}>@{intern.username}</Text>
+        <Text style={styles.dept}>{intern.department?.name ?? 'No Department'}</Text>
       </View>
     </View>
+
+    <View style={styles.detailsRow}>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Face AI</Text>
+        <Text style={[styles.detailVal, {color: intern.faceDescriptor ? '#16A34A' : '#DC2626'}]}>
+          {intern.faceDescriptor ? 'Enrolled' : 'Pending'}
+        </Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Mentor</Text>
+        <Text style={styles.detailVal}>
+          {intern.mentor ? `${intern.mentor.firstName}` : 'None'}
+        </Text>
+      </View>
+    </View>
+
     <View style={styles.actions}>
-      <TouchableOpacity
-        style={styles.actionTouch}
-        activeOpacity={0.7}
-        onPress={onTransfer}>
-        <Text style={styles.actionBtn}>🔁</Text>
+      <TouchableOpacity style={styles.actionBtn} onPress={onTransfer}>
+        <MaterialCommunityIcons name="account-switch-outline" size={20} color="#047857" />
       </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.actionTouch}
-        activeOpacity={0.7}
-        onPress={onEdit}>
-        <Text style={styles.actionBtn}>✏️</Text>
+      <TouchableOpacity style={styles.actionBtn} onPress={onEdit}>
+        <MaterialCommunityIcons name="pencil-outline" size={20} color="#047857" />
       </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.actionTouch}
-        activeOpacity={0.7}
-        onPress={onDelete}>
-        <Text style={styles.actionBtn}>🗑️</Text>
+      <TouchableOpacity style={styles.actionBtn} onPress={onDelete}>
+        <MaterialCommunityIcons name="delete-outline" size={20} color="#DC2626" />
       </TouchableOpacity>
     </View>
   </View>
 );
 
 export default function InternListScreen({navigation}) {
-  const [interns, setInterns]         = useState([]);
-  const [filtered, setFiltered]       = useState([]);
-  const [search, setSearch]           = useState('');
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
+  const [interns, setInterns]     = useState([]);
+  const [search, setSearch]       = useState('');
+  const [loading, setLoading]     = useState(true);
 
   // Transfer Modal State
   const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -100,79 +99,78 @@ export default function InternListScreen({navigation}) {
   const [loadingMentors, setLoadingMentors]             = useState(false);
   const [transferring, setTransferring]                 = useState(false);
 
-  const load = async () => {
+  const fetchInterns = useCallback(async () => {
     try {
       const res = await getInterns();
       setInterns(res.data || []);
-      setFiltered(res.data || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
+  }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchInterns();
+    }, [fetchInterns])
+  );
 
-  const onSearch = text => {
-    setSearch(text);
-    const q = text.toLowerCase();
-    setFiltered(interns.filter(i =>
-      i.firstName.toLowerCase().includes(q) ||
-      i.lastName.toLowerCase().includes(q)  ||
-      i.username.toLowerCase().includes(q)
-    ));
-  };
-
-  const handleDelete = intern => {
+  const handleDelete = (intern) => {
     Alert.alert(
-      'Remove Intern',
-      `Are you sure you want to remove ${intern.firstName} ${intern.lastName}?`,
+      'Delete Intern',
+      `Are you sure you want to deactivate ${intern.firstName} ${intern.lastName}?`,
       [
         {text: 'Cancel', style: 'cancel'},
         {
-          text: 'Remove',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteIntern(intern.id);
-              load();
-              Alert.alert('Success', 'Intern has been removed.');
+              fetchInterns();
             } catch (e) {
-              Alert.alert('Error', 'Could not remove intern.');
+              Alert.alert('Error', e?.response?.data?.message ?? 'Failed to delete intern.');
             }
           },
         },
-      ],
+      ]
     );
   };
 
-  // ─── Transfer Flow ───────────────────────────────────────────────────────────
   const openTransferModal = async (intern) => {
     setSelectedIntern(intern);
-    setSelectedDeptId(null);
-    setSelectedMentorId(null);
-    setMentorsInDept([]);
+    setSelectedDeptId(intern.departmentId ?? null);
+    setSelectedMentorId(intern.mentorId ?? null);
     setTransferModalVisible(true);
 
     try {
-      const res = await getMentorDepartments();
-      setDepartments(res.data || []);
-    } catch (e) {
-      Alert.alert('Error', 'Failed to load departments.');
+      const deptRes = await getMentorDepartments();
+      setDepartments(deptRes.data || []);
+
+      if (intern.departmentId) {
+        setLoadingMentors(true);
+        try {
+          const mRes = await getMentorsByDepartment(intern.departmentId);
+          setMentorsInDept(mRes.data || []);
+        } finally {
+          setLoadingMentors(false);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load transfer data', err);
     }
   };
 
-  const handleSelectDepartment = async (deptId) => {
+  const handleDeptSelect = async (deptId) => {
     setSelectedDeptId(deptId);
     setSelectedMentorId(null);
     setLoadingMentors(true);
     try {
-      const res = await getMentorsByDepartment(deptId);
-      setMentorsInDept(res.data || []);
-    } catch (e) {
-      console.error('Failed to load mentors for dept:', e);
+      const mRes = await getMentorsByDepartment(deptId);
+      setMentorsInDept(mRes.data || []);
+    } catch (err) {
+      console.error('Failed to load mentors for department', err);
       setMentorsInDept([]);
     } finally {
       setLoadingMentors(false);
@@ -181,11 +179,11 @@ export default function InternListScreen({navigation}) {
 
   const handleConfirmTransfer = async () => {
     if (!selectedDeptId) {
-      Alert.alert('Selection Required', 'Please select a target department.');
+      Alert.alert('Selection Required', 'Please select a destination department.');
       return;
     }
     if (!selectedMentorId) {
-      Alert.alert('Selection Required', 'Please select a mentor from the selected department.');
+      Alert.alert('Selection Required', 'Please select a new mentor for the intern.');
       return;
     }
 
@@ -195,88 +193,81 @@ export default function InternListScreen({navigation}) {
         departmentId: selectedDeptId,
         mentorId: selectedMentorId,
       });
-
-      const targetMentor = mentorsInDept.find(m => m.id === selectedMentorId);
-      Alert.alert(
-        'Intern Transferred',
-        `${selectedIntern.firstName} ${selectedIntern.lastName} has been successfully transferred to ${targetMentor ? `${targetMentor.firstName} ${targetMentor.lastName}` : 'the new mentor'}.`,
-      );
+      Alert.alert('Success', `${selectedIntern.firstName} has been transferred successfully.`);
       setTransferModalVisible(false);
-      load();
-    } catch (e) {
-      const msg = e?.response?.data?.message ?? 'Failed to transfer intern.';
-      Alert.alert('Transfer Error', msg);
+      fetchInterns();
+    } catch (err) {
+      Alert.alert('Transfer Failed', err?.response?.data?.message ?? 'Could not transfer intern.');
     } finally {
       setTransferring(false);
     }
   };
 
+  const filtered = interns.filter(i =>
+    `${i.firstName} ${i.lastName} ${i.username} ${i.department?.name}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
   return (
     <View style={styles.root}>
-      <AppHeader title="My Interns" navigation={navigation} />
+      <AppHeader title="Interns" navigation={navigation} />
+
       <Searchbar
         placeholder="Search interns..."
         value={search}
-        onChangeText={onSearch}
+        onChangeText={setSearch}
         style={styles.search}
-        inputStyle={{color: '#E8EAF6'}}
-        iconColor="#00B4DB"
-        placeholderTextColor="#6B6D8A"
+        inputStyle={{color: '#1C1917'}}
+        iconColor="#047857"
+        placeholderTextColor="#78716C"
       />
+
       {loading ? (
-        <ActivityIndicator color="#6C63FF" style={styles.loader} />
+        <ActivityIndicator color="#047857" style={styles.loader} />
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={i => i.id.toString()}
           renderItem={({item}) => (
-            <InternCard
+            <InternItem
               intern={item}
-              onTransfer={() => openTransferModal(item)}
               onEdit={() => navigation.navigate('InternForm', {intern: item})}
               onDelete={() => handleDelete(item)}
+              onTransfer={() => openTransferModal(item)}
             />
           )}
           contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); load();}} />
-          }
           ListEmptyComponent={
             <View style={styles.empty}>
+              <MaterialCommunityIcons name="account-school-outline" size={40} color="#78716C" style={{marginBottom: 8}} />
               <Text style={styles.emptyText}>No interns found</Text>
             </View>
           }
         />
       )}
-      <FAB
-        icon="plus"
-        label="Add Intern"
-        style={styles.fab}
-        color="#fff"
-        onPress={() => navigation.navigate('InternForm', {intern: null})}
-      />
 
-      {/* ─── Transfer Intern Modal ────────────────────────────────────────── */}
+      {/* Transfer Modal */}
       <Modal
         visible={transferModalVisible}
         transparent
         animationType="slide"
         onRequestClose={() => setTransferModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalIcon}>🔁</Text>
+              <MaterialCommunityIcons name="account-switch" size={28} color="#047857" />
               <View style={{flex: 1}}>
                 <Text style={styles.modalTitle}>Transfer Intern</Text>
                 <Text style={styles.modalSub}>
-                  {selectedIntern ? `${selectedIntern.firstName} ${selectedIntern.lastName} (@${selectedIntern.username})` : ''}
+                  {selectedIntern?.firstName} {selectedIntern?.lastName} (@{selectedIntern?.username})
                 </Text>
               </View>
             </View>
 
             <ScrollView style={{maxHeight: 380}}>
-              {/* Step 1: Department Selection */}
-              <Text style={styles.formSectionLabel}>1. Select Target Department</Text>
+              {/* Step 1: Pick Department */}
+              <Text style={styles.modalSectionTitle}>1. Select New Department</Text>
               <View style={styles.pickerList}>
                 {departments.map(d => {
                   const selected = selectedDeptId === d.id;
@@ -284,220 +275,242 @@ export default function InternListScreen({navigation}) {
                     <TouchableOpacity
                       key={d.id}
                       style={[styles.pickerItem, selected && styles.pickerItemSelected]}
-                      activeOpacity={0.7}
-                      onPress={() => handleSelectDepartment(d.id)}>
-                      <Text style={[styles.pickerItemText, selected && {color: '#6C63FF', fontWeight: 'bold'}]}>
-                        🏢 {d.name}
-                      </Text>
-                      {selected ? <Text style={{color: '#6C63FF'}}>✓</Text> : null}
+                      onPress={() => handleDeptSelect(d.id)}>
+                      <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                        <MaterialCommunityIcons name="domain" size={16} color={selected ? '#047857' : '#78716C'} />
+                        <Text style={[styles.pickerItemText, selected && {color: '#047857', fontWeight: 'bold'}]}>
+                          {d.name}
+                        </Text>
+                      </View>
+                      {selected ? <MaterialCommunityIcons name="check" size={18} color="#047857" /> : null}
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Step 2: Mentors in Selected Department */}
-              {selectedDeptId ? (
-                <>
-                  <Text style={styles.formSectionLabel}>2. Select Target Mentor</Text>
-                  {loadingMentors ? (
-                    <ActivityIndicator color="#6C63FF" style={{marginVertical: 12}} />
-                  ) : mentorsInDept.length === 0 ? (
-                    <View style={styles.noMentorBox}>
-                      <Text style={styles.noMentorText}>⚠️ No active mentors in this department.</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.pickerList}>
-                      {mentorsInDept.map(m => {
-                        const selected = selectedMentorId === m.id;
-                        return (
-                          <TouchableOpacity
-                            key={m.id}
-                            style={[styles.pickerItem, selected && styles.pickerItemSelected]}
-                            activeOpacity={0.7}
-                            onPress={() => setSelectedMentorId(m.id)}>
-                            <View>
-                              <Text style={[styles.pickerItemText, selected && {color: '#00D2FF', fontWeight: 'bold'}]}>
-                                👨‍🏫 {m.firstName} {m.lastName}
-                              </Text>
-                              <Text style={styles.pickerItemSub}>@{m.username}</Text>
-                            </View>
-                            {selected ? <Text style={{color: '#00D2FF'}}>✓</Text> : null}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </>
-              ) : null}
+              {/* Step 2: Pick Mentor */}
+              <Text style={[styles.modalSectionTitle, {marginTop: 16}]}>2. Assign Mentor in Department</Text>
+              {loadingMentors ? (
+                <ActivityIndicator color="#047857" style={{marginVertical: 12}} />
+              ) : mentorsInDept.length === 0 ? (
+                <Text style={styles.emptyMentorsText}>
+                  {selectedDeptId ? 'No active mentors found in this department.' : 'Please select a department above.'}
+                </Text>
+              ) : (
+                <View style={styles.pickerList}>
+                  {mentorsInDept.map(m => {
+                    const selected = selectedMentorId === m.id;
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[styles.pickerItem, selected && styles.pickerItemSelected]}
+                        onPress={() => setSelectedMentorId(m.id)}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                          <MaterialCommunityIcons name="account-tie" size={16} color={selected ? '#047857' : '#78716C'} />
+                          <Text style={[styles.pickerItemText, selected && {color: '#047857', fontWeight: 'bold'}]}>
+                            {m.firstName} {m.lastName} (@{m.username})
+                          </Text>
+                        </View>
+                        {selected ? <MaterialCommunityIcons name="check" size={18} color="#047857" /> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </ScrollView>
 
             <View style={styles.modalActions}>
               <Button
-                mode="outlined"
-                textColor="#8B8DAA"
-                style={styles.modalCancelBtn}
-                onPress={() => setTransferModalVisible(false)}>
+                mode="text"
+                textColor="#78716C"
+                onPress={() => setTransferModalVisible(false)}
+                disabled={transferring}>
                 Cancel
               </Button>
               <Button
                 mode="contained"
+                onPress={handleConfirmTransfer}
                 loading={transferring}
                 disabled={transferring || !selectedDeptId || !selectedMentorId}
-                style={styles.modalConfirmBtn}
-                contentStyle={{paddingVertical: 4}}
-                onPress={handleConfirmTransfer}>
+                style={styles.transferBtn}>
                 Confirm Transfer
               </Button>
             </View>
           </View>
         </View>
       </Modal>
+
+      <FAB
+        icon="plus"
+        color="#fff"
+        style={styles.fab}
+        onPress={() => navigation.navigate('InternForm')}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root:    {flex: 1, backgroundColor: '#0D0E1A'},
+  root:     {flex: 1, backgroundColor: '#FBF9F5'},
   search: {
-    margin: 16,
-    backgroundColor: '#13152A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2A2C45',
-  },
-  loader:  {marginTop: 40},
-  list:    {paddingHorizontal: 16, paddingBottom: 100},
-  card: {
-    backgroundColor: '#13152A',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#2A2C45',
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: '#EAE2D5',
     elevation: 2,
   },
-  cardLeft:    {flexDirection: 'row', flex: 1, gap: 12},
+  loader:   {marginTop: 40},
+  list:     {paddingHorizontal: 16, paddingBottom: 80},
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EAE2D5',
+    elevation: 2,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
-  avatarText:  {color: '#fff', fontWeight: '700', fontSize: 16},
-  cardInfo:    {flex: 1, gap: 2},
-  name:        {color: '#E8EAF6', fontSize: 14, fontWeight: '700'},
-  username:    {color: '#6C63FF', fontSize: 12},
-  dept:        {color: '#8B8DAA', fontSize: 12},
-  badges:      {flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap'},
-  shiftChip:   {height: 22},
-  faceChip:    {backgroundColor: '#4CAF5022', height: 22, borderColor: '#4CAF5044', borderWidth: 1},
-  faceChipText:{color: '#4CAF50', fontSize: 10},
-  noFaceChip:  {backgroundColor: '#FF525222', height: 22, borderColor: '#FF525244', borderWidth: 1},
-  noFaceText:  {color: '#FF5252', fontSize: 10},
-  actions:     {flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'center'},
-  actionTouch: {padding: 6, borderRadius: 8, backgroundColor: '#1E2035'},
-  actionBtn:   {fontSize: 16},
-  fab: {position: 'absolute', right: 20, bottom: 24, backgroundColor: '#6C63FF'},
-  empty:       {alignItems: 'center', paddingTop: 60},
-  emptyText:   {color: '#8B8DAA', fontSize: 16},
-
-  // Modal Styles
+  avatarText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  info:      {flex: 1},
+  nameRow:   {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  name:      {color: '#1C1917', fontSize: 15, fontWeight: '700'},
+  username:  {color: '#047857', fontSize: 12, fontWeight: '600', marginTop: 1},
+  dept:      {color: '#78716C', fontSize: 12, marginTop: 2},
+  shiftChip: {height: 22, alignItems: 'center'},
+  detailsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FAF7F0',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  detailItem:  {flex: 1},
+  detailLabel: {color: '#78716C', fontSize: 11, fontWeight: '600'},
+  detailVal:   {color: '#1C1917', fontSize: 13, fontWeight: '700', marginTop: 2},
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EAE2D5',
+    paddingTop: 10,
+  },
+  actionBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#FAF7F0',
+  },
+  empty: {
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    color: '#78716C',
+    fontSize: 16,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    backgroundColor: '#047857',
+    borderRadius: 16,
+    elevation: 4,
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalCard: {
-    backgroundColor: '#13152A',
-    borderRadius: 18,
     padding: 20,
-    width: '100%',
-    maxWidth: 440,
-    borderWidth: 1,
-    borderColor: '#2A2C45',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2C45',
     paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EAE2D5',
   },
-  modalIcon:  {fontSize: 28},
-  modalTitle: {color: '#E8EAF6', fontSize: 18, fontWeight: '700'},
-  modalSub:   {color: '#00D2FF', fontSize: 12, marginTop: 2},
-  formSectionLabel: {
-    color: '#6C63FF',
-    fontSize: 12,
+  modalTitle: {color: '#1C1917', fontSize: 17, fontWeight: '700'},
+  modalSub:   {color: '#047857', fontSize: 12, marginTop: 2, fontWeight: '600'},
+  modalSectionTitle: {
+    color: '#047857',
+    fontSize: 13,
     fontWeight: '700',
+    marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 10,
-    marginBottom: 8,
   },
   pickerList: {
-    backgroundColor: '#1A1C33',
-    borderRadius: 10,
+    backgroundColor: '#FAF7F0',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A2C45',
-    marginBottom: 12,
+    borderColor: '#EAE2D5',
     overflow: 'hidden',
   },
   pickerItem: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2C45',
+    borderBottomColor: '#EAE2D5',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   pickerItemSelected: {
-    backgroundColor: '#6C63FF22',
+    backgroundColor: '#D1FAE5',
   },
   pickerItemText: {
-    color: '#E8EAF6',
-    fontSize: 14,
+    color: '#1C1917',
+    fontSize: 13,
   },
-  pickerItemSub: {
-    color: '#8B8DAA',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  noMentorBox: {
-    backgroundColor: '#FF525215',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FF525233',
-    marginBottom: 12,
-  },
-  noMentorText: {
-    color: '#FF5252',
+  emptyMentorsText: {
+    color: '#78716C',
     fontSize: 12,
+    fontStyle: 'italic',
+    padding: 12,
+    textAlign: 'center',
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 10,
-    marginTop: 16,
+    marginTop: 20,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#2A2C45',
-    paddingTop: 14,
+    borderTopColor: '#EAE2D5',
   },
-  modalCancelBtn: {
-    borderColor: '#3D3F5C',
+  transferBtn: {
     borderRadius: 10,
-  },
-  modalConfirmBtn: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 10,
+    backgroundColor: '#047857',
   },
 });

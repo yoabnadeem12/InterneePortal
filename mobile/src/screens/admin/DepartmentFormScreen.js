@@ -7,29 +7,49 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {Text, TextInput, Button, HelperText} from 'react-native-paper';
+import {
+  Text,
+  TextInput,
+  Button,
+  HelperText,
+} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../components/AppHeader';
-import {createDepartment, updateDepartment} from '../../api/apiClient';
+import {
+  createDepartment,
+  updateDepartment,
+} from '../../api/apiClient';
 
 export default function DepartmentFormScreen({navigation, route}) {
   const editDept = route.params?.dept ?? null;
   const isEdit   = !!editDept;
 
   const [name, setName]         = useState(editDept?.name ?? '');
-  const [lat, setLat]           = useState(editDept?.latitude?.toString() ?? '');
-  const [lng, setLng]           = useState(editDept?.longitude?.toString() ?? '');
-  const [radius, setRadius]     = useState(editDept?.radiusMeters?.toString() ?? '50');
-  const [desc, setDesc]         = useState(editDept?.description ?? '');
+  const [description, setDesc]  = useState(editDept?.description ?? '');
+  const [latitude, setLat]      = useState(editDept?.latitude?.toString() ?? '');
+  const [longitude, setLng]     = useState(editDept?.longitude?.toString() ?? '');
+  const [radiusMeters, setRadius] = useState(
+    editDept?.radiusMeters?.toString() ?? '100'
+  );
   const [loading, setLoading]   = useState(false);
   const [errors, setErrors]     = useState({});
 
   const validate = () => {
     const e = {};
-    if (!name.trim())         e.name   = 'Department name is required';
-    const latN = parseFloat(lat);
-    const lngN = parseFloat(lng);
-    if (isNaN(latN) || latN < -90  || latN > 90)   e.lat = 'Enter valid latitude  (-90 to 90)';
-    if (isNaN(lngN) || lngN < -180 || lngN > 180)  e.lng = 'Enter valid longitude (-180 to 180)';
+    if (!name.trim()) e.name = 'Department name is required';
+
+    const lat = parseFloat(latitude);
+    if (isNaN(lat) || lat < -90 || lat > 90)
+      e.latitude = 'Enter a valid latitude (-90 to 90)';
+
+    const lng = parseFloat(longitude);
+    if (isNaN(lng) || lng < -180 || lng > 180)
+      e.longitude = 'Enter a valid longitude (-180 to 180)';
+
+    const rad = parseInt(radiusMeters, 10);
+    if (isNaN(rad) || rad < 10 || rad > 10000)
+      e.radius = 'Radius must be between 10m and 10,000m';
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -40,21 +60,23 @@ export default function DepartmentFormScreen({navigation, route}) {
     try {
       const payload = {
         name:         name.trim(),
-        latitude:     parseFloat(lat),
-        longitude:    parseFloat(lng),
-        radiusMeters: parseFloat(radius) || 50,
-        description:  desc.trim() || undefined,
+        description:  description.trim() || undefined,
+        latitude:     parseFloat(latitude),
+        longitude:    parseFloat(longitude),
+        radiusMeters: parseInt(radiusMeters, 10),
       };
+
       if (isEdit) {
         await updateDepartment(editDept.id, payload);
-        Alert.alert('Success', 'Department updated.');
+        Alert.alert('Success', 'Department updated successfully.');
       } else {
         await createDepartment(payload);
-        Alert.alert('Success', 'Department created.');
+        Alert.alert('Success', 'Department created successfully.');
       }
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.message ?? 'Operation failed.');
+      const msg = e?.response?.data?.message ?? 'Operation failed.';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -72,7 +94,7 @@ export default function DepartmentFormScreen({navigation, route}) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll}>
 
-          <Text style={styles.sectionTitle}>Department Details</Text>
+          <Text style={styles.sectionTitle}>General Info</Text>
 
           <TextInput
             label="Department Name *"
@@ -81,83 +103,77 @@ export default function DepartmentFormScreen({navigation, route}) {
             mode="outlined"
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
           {errors.name ? <HelperText type="error">{errors.name}</HelperText> : null}
 
           <TextInput
-            label="Description"
-            value={desc}
+            label="Description (Optional)"
+            value={description}
             onChangeText={setDesc}
             mode="outlined"
             multiline
             numberOfLines={3}
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
 
-          <Text style={styles.sectionTitle}>GPS Coordinates</Text>
+          <Text style={styles.sectionTitle}>Geo-Fence Coordinates</Text>
 
-          <View style={styles.hint}>
-            <Text style={styles.hintText}>
-              📍 Enter the exact GPS coordinates of the department location.
-              Interns must be within {radius}m to mark attendance.
+          <View style={styles.infoBox}>
+            <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#047857" />
+            <Text style={styles.infoText}>
+              Set the GPS center and radius for attendance verification. Interns must be within this zone to check in/out.
             </Text>
           </View>
 
           <TextInput
-            label="Latitude *"
-            value={lat}
+            label="Latitude * (-90 to 90)"
+            value={latitude}
             onChangeText={setLat}
             mode="outlined"
             keyboardType="numeric"
-            placeholder="e.g. 33.7294"
+            placeholder="e.g. 24.8607"
+            left={<TextInput.Icon icon="map-marker" iconColor="#047857" />}
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
-            left={<TextInput.Icon icon="latitude" />}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
-          {errors.lat ? <HelperText type="error">{errors.lat}</HelperText> : null}
+          {errors.latitude ? <HelperText type="error">{errors.latitude}</HelperText> : null}
 
           <TextInput
-            label="Longitude *"
-            value={lng}
+            label="Longitude * (-180 to 180)"
+            value={longitude}
             onChangeText={setLng}
             mode="outlined"
             keyboardType="numeric"
-            placeholder="e.g. 73.0931"
+            placeholder="e.g. 67.0011"
+            left={<TextInput.Icon icon="map-marker" iconColor="#047857" />}
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
-            left={<TextInput.Icon icon="longitude" />}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
-          {errors.lng ? <HelperText type="error">{errors.lng}</HelperText> : null}
+          {errors.longitude ? <HelperText type="error">{errors.longitude}</HelperText> : null}
 
           <TextInput
-            label="Geo-fence Radius (meters)"
-            value={radius}
+            label="Allowed Radius (Meters) *"
+            value={radiusMeters}
             onChangeText={setRadius}
             mode="outlined"
             keyboardType="numeric"
+            placeholder="e.g. 100"
+            left={<TextInput.Icon icon="radius" iconColor="#047857" />}
             style={styles.input}
             outlineStyle={styles.outline}
-            textColor="#E8EAF6"
-            left={<TextInput.Icon icon="radius" />}
+            textColor="#1C1917"
+            theme={{colors: {primary: '#047857'}}}
           />
-
-          {/* Live preview */}
-          {lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng)) ? (
-            <View style={styles.previewBox}>
-              <Text style={styles.previewLabel}>Coordinates Preview</Text>
-              <Text style={styles.previewCoords}>
-                📍 {parseFloat(lat).toFixed(6)}, {parseFloat(lng).toFixed(6)}
-              </Text>
-              <Text style={styles.previewRadius}>
-                Geo-fence: {radius || 50}m radius
-              </Text>
-            </View>
-          ) : null}
+          {errors.radius ? <HelperText type="error">{errors.radius}</HelperText> : null}
 
           <Button
             mode="contained"
@@ -176,43 +192,41 @@ export default function DepartmentFormScreen({navigation, route}) {
 }
 
 const styles = StyleSheet.create({
-  root:    {flex: 1, backgroundColor: '#0D0E1A'},
-  scroll:  {padding: 16, paddingBottom: 40},
+  root:         {flex: 1, backgroundColor: '#FBF9F5'},
+  scroll:       {padding: 16, paddingBottom: 40},
   sectionTitle: {
-    color: '#8B8DAA',
+    color: '#047857',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 10,
-    marginTop: 20,
+    marginTop: 16,
   },
-  hint: {
-    backgroundColor: '#1A1C33',
-    borderRadius: 10,
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
     padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#6C63FF33',
-  },
-  hintText:   {color: '#8B8DAA', fontSize: 12, lineHeight: 18},
-  input:      {marginBottom: 6, backgroundColor: '#13152A'},
-  outline:    {borderColor: '#3D3F5C', borderRadius: 10},
-  previewBox: {
-    backgroundColor: '#1A1C33',
     borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
     borderWidth: 1,
-    borderColor: '#4CAF5033',
+    borderColor: '#A7F3D0',
+    marginBottom: 14,
+    gap: 10,
   },
-  previewLabel:  {color: '#4CAF50', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6},
-  previewCoords: {color: '#E8EAF6', fontSize: 15, fontFamily: 'monospace', fontWeight: '700'},
-  previewRadius: {color: '#8B8DAA', fontSize: 12, marginTop: 4},
+  infoText: {
+    color: '#064E3B',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
+  input:        {marginBottom: 6, backgroundColor: '#FAF7F0'},
+  outline:      {borderColor: '#E5DDD0', borderRadius: 12},
   saveBtn: {
     marginTop: 24,
     borderRadius: 12,
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#047857',
+    elevation: 2,
   },
   saveBtnContent: {paddingVertical: 6},
   saveBtnLabel:   {fontSize: 15, fontWeight: '700', color: '#fff'},

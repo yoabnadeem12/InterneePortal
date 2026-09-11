@@ -1,6 +1,7 @@
 import React from 'react';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 import {createStackNavigator} from '@react-navigation/stack';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AdminDashboard       from '../screens/admin/AdminDashboard';
 import MentorListScreen     from '../screens/admin/MentorListScreen';
 import MentorFormScreen     from '../screens/admin/MentorFormScreen';
@@ -11,7 +12,6 @@ import AppDrawerContent     from '../components/AppDrawerContent';
 const Drawer = createDrawerNavigator();
 const Stack  = createStackNavigator();
 
-// Stack inside drawer for screens that need a back button
 const MentorStack = () => (
   <Stack.Navigator screenOptions={{headerShown: false}}>
     <Stack.Screen name="MentorList"    component={MentorListScreen} />
@@ -26,17 +26,6 @@ const DepartmentStack = () => (
   </Stack.Navigator>
 );
 
-const drawerTheme = {
-  colors: {
-    primary:          '#6C63FF',
-    card:             '#13152A',
-    text:             '#E8EAF6',
-    border:           '#2A2C45',
-    notification:     '#FF5252',
-    background:       '#0D0E1A',
-  },
-};
-
 export default function AdminNavigator() {
   return (
     <Drawer.Navigator
@@ -45,10 +34,11 @@ export default function AdminNavigator() {
       screenOptions={{
         headerShown:      false,
         drawerType:       'front',
-        drawerStyle:      {backgroundColor: '#13152A', width: 280},
-        drawerActiveTintColor:   '#6C63FF',
-        drawerInactiveTintColor: '#8B8DAA',
-        drawerActiveBackgroundColor: '#6C63FF22',
+        drawerStyle:      {backgroundColor: '#FFFFFF', width: 280},
+        drawerActiveTintColor:   '#047857',
+        drawerInactiveTintColor: '#78716C',
+        drawerActiveBackgroundColor: '#D1FAE5',
+        drawerLabelStyle: {fontWeight: '600', fontSize: 14},
       }}>
 
       <Drawer.Screen
@@ -56,7 +46,7 @@ export default function AdminNavigator() {
         component={AdminDashboard}
         options={{
           drawerLabel: 'Dashboard',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>📊</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={color} />,
         }}
       />
       <Drawer.Screen
@@ -64,7 +54,7 @@ export default function AdminNavigator() {
         component={MentorStack}
         options={{
           drawerLabel: 'Mentors',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>👨‍🏫</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="account-tie-outline" size={22} color={color} />,
         }}
       />
       <Drawer.Screen
@@ -72,12 +62,9 @@ export default function AdminNavigator() {
         component={DepartmentStack}
         options={{
           drawerLabel: 'Departments',
-          drawerIcon: ({color}) => <Text style={{fontSize: 18, color}}>🏢</Text>,
+          drawerIcon: ({color}) => <MaterialCommunityIcons name="domain" size={22} color={color} />,
         }}
       />
     </Drawer.Navigator>
   );
 }
-
-// Hack: Text must be imported inside this file
-const {Text} = require('react-native');

@@ -131,6 +131,10 @@ namespace AttendanceAPI.DTOs
         public string FaceDescriptor { get; set; } = string.Empty; // Base64 image or JSON float array
         public string? LivenessChallenge { get; set; } // e.g. "blink", "turn_left", "turn_right", "smile"
         public bool LivenessPassed { get; set; } = true;
+        /// <summary>URL returned by the photo-upload endpoint. Stored in the attendance record for the mentor to view.</summary>
+        public string? CheckInPhotoUrl { get; set; }
+        public string? CheckOutPhotoUrl { get; set; }
+        public string? PhotoUrl { get; set; }
     }
 
     public class AttendanceRecordDto
@@ -149,6 +153,10 @@ namespace AttendanceAPI.DTOs
         public bool CheckInGeoVerified { get; set; }
         public bool CheckOutFaceVerified { get; set; }
         public bool CheckOutGeoVerified { get; set; }
+        /// <summary>URL of the photo uploaded at check-in attempt.</summary>
+        public string? CheckInPhotoUrl { get; set; }
+        /// <summary>URL of the photo uploaded at check-out attempt.</summary>
+        public string? CheckOutPhotoUrl { get; set; }
     }
 
     // ─── Face ─────────────────────────────────────────────────────────────────

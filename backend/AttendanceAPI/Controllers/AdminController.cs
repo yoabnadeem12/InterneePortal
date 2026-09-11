@@ -22,6 +22,16 @@ namespace AttendanceAPI.Controllers
             _db    = db;
         }
 
+        // ─── Dashboard Overview ──────────────────────────────────────────────
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> GetDashboard()
+        {
+            var totalMentors     = await _db.Users.CountAsync(u => u.Role == UserRole.Mentor);
+            var totalDepartments = await _db.Departments.CountAsync();
+            var totalInterns     = await _db.Users.CountAsync(u => u.Role == UserRole.Intern);
+            return Ok(new { totalMentors, totalDepartments, totalInterns });
+        }
+
         // ─── Mentors ──────────────────────────────────────────────────────────
 
         [HttpGet("mentors")]

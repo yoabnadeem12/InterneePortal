@@ -8,6 +8,10 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Bind to all interfaces so ADB reverse tcp:5000 tcp:5000 can forward
+// Android device traffic to this backend (127.0.0.1 loopback blocks ADB tunneling)
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
+
 // ─── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -100,6 +104,16 @@ using (var scope = app.Services.CreateScope())
             BEGIN
                 ALTER TABLE [Users] ADD [MustChangePassword] BIT NOT NULL DEFAULT 0;
             END
+
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[AttendanceRecords]') AND name = 'CheckInPhotoUrl')
+            BEGIN
+                ALTER TABLE [AttendanceRecords] ADD [CheckInPhotoUrl] NVARCHAR(MAX) NULL;
+            END
+
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[AttendanceRecords]') AND name = 'CheckOutPhotoUrl')
+            BEGIN
+                ALTER TABLE [AttendanceRecords] ADD [CheckOutPhotoUrl] NVARCHAR(MAX) NULL;
+            END
         ");
     }
     catch (Exception ex)
@@ -115,6 +129,9 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Intern Attendance API v1");
     c.RoutePrefix = "swagger";
 });
+
+// Serve uploaded photos from wwwroot/uploads/photos/
+app.UseStaticFiles();
 
 app.UseCors();
 app.UseAuthentication();

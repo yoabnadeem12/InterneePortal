@@ -26,7 +26,7 @@ namespace AttendanceAPI.Services
 
         // Threshold for MiniFASNet Passive Anti-Spoofing
         // Score > 0.60 indicates a real 3D human face, Score < 0.60 indicates 2D photo / screen replay
-        public const double DefaultSpoofThreshold = 0.60;
+        public const double DefaultSpoofThreshold = 0.45;
 
         public FaceRecognitionService(ILogger<FaceRecognitionService> logger, IWebHostEnvironment env)
         {

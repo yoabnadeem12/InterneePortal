@@ -1,77 +1,99 @@
-import React, {useEffect, useState, useCallback} from 'react';
-import {View, FlatList, StyleSheet, Alert, RefreshControl} from 'react-native';
-import {Text, FAB, Searchbar, ActivityIndicator} from 'react-native-paper';
+import React, {useCallback, useState} from 'react';
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
+import {
+  Text,
+  ActivityIndicator,
+  Searchbar,
+  FAB,
+} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useFocusEffect} from '@react-navigation/native';
 import AppHeader from '../../components/AppHeader';
 import {getDepartments, deleteDepartment} from '../../api/apiClient';
 
-const DeptCard = ({dept, onEdit, onDelete}) => (
+const DeptItem = ({dept, onEdit, onDelete}) => (
   <View style={styles.card}>
     <View style={styles.cardHeader}>
       <View style={styles.iconBox}>
-        <Text style={styles.icon}>🏢</Text>
+        <MaterialCommunityIcons name="domain" size={24} color="#047857" />
       </View>
-      <View style={styles.cardInfo}>
+      <View style={styles.info}>
         <Text style={styles.name}>{dept.name}</Text>
-        <Text style={styles.desc}>{dept.description ?? 'No description'}</Text>
-        <Text style={styles.radius}>📍 Radius: {dept.radiusMeters}m</Text>
-      </View>
-      <View style={styles.actions}>
-        <Text style={styles.actionBtn} onPress={onEdit}>✏️</Text>
-        <Text style={styles.actionBtn} onPress={onDelete}>🗑️</Text>
+        <Text style={styles.coords}>
+          {dept.latitude.toFixed(4)}, {dept.longitude.toFixed(4)}
+        </Text>
+        <Text style={styles.radius}>Geo-fence: {dept.radiusMeters}m radius</Text>
       </View>
     </View>
-    <View style={styles.coordsRow}>
-      <View style={styles.coordBox}>
-        <Text style={styles.coordLabel}>Latitude</Text>
-        <Text style={styles.coordValue}>{dept.latitude.toFixed(6)}</Text>
-      </View>
-      <View style={styles.coordDivider} />
-      <View style={styles.coordBox}>
-        <Text style={styles.coordLabel}>Longitude</Text>
-        <Text style={styles.coordValue}>{dept.longitude.toFixed(6)}</Text>
-      </View>
+
+    {dept.description ? (
+      <Text style={styles.desc}>{dept.description}</Text>
+    ) : null}
+
+    <View style={styles.actions}>
+      <TouchableOpacity style={styles.actionBtn} onPress={onEdit}>
+        <MaterialCommunityIcons name="pencil-outline" size={20} color="#047857" />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionBtn} onPress={onDelete}>
+        <MaterialCommunityIcons name="delete-outline" size={20} color="#DC2626" />
+      </TouchableOpacity>
     </View>
   </View>
 );
 
 export default function DepartmentListScreen({navigation}) {
-  const [depts, setDepts]         = useState([]);
-  const [filtered, setFiltered]   = useState([]);
-  const [search, setSearch]       = useState('');
-  const [loading, setLoading]     = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [depts, setDepts]     = useState([]);
+  const [search, setSearch]   = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const fetchDepts = useCallback(async () => {
     try {
       const res = await getDepartments();
-      setDepts(res.data);
-      setFiltered(res.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); setRefreshing(false); }
-  };
+      setDepts(res.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchDepts();
+    }, [fetchDepts])
+  );
 
-  const onSearch = text => {
-    setSearch(text);
-    const q = text.toLowerCase();
-    setFiltered(depts.filter(d => d.name.toLowerCase().includes(q)));
-  };
-
-  const handleDelete = dept => {
-    Alert.alert('Delete Department', `Delete "${dept.name}"?`, [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try { await deleteDepartment(dept.id); load(); }
-          catch { Alert.alert('Error', 'Could not delete department.'); }
+  const handleDelete = (dept) => {
+    Alert.alert(
+      'Delete Department',
+      `Are you sure you want to delete "${dept.name}"? This may affect mentors/interns assigned to this department.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDepartment(dept.id);
+              fetchDepts();
+            } catch (e) {
+              Alert.alert('Error', e?.response?.data?.message ?? 'Failed to delete department.');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
+
+  const filtered = depts.filter(d =>
+    `${d.name} ${d.description}`.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <View style={styles.root}>
@@ -80,32 +102,30 @@ export default function DepartmentListScreen({navigation}) {
       <Searchbar
         placeholder="Search departments..."
         value={search}
-        onChangeText={onSearch}
+        onChangeText={setSearch}
         style={styles.search}
-        inputStyle={{color: '#E8EAF6'}}
-        iconColor="#FFD700"
-        placeholderTextColor="#6B6D8A"
+        inputStyle={{color: '#1C1917'}}
+        iconColor="#047857"
+        placeholderTextColor="#78716C"
       />
 
       {loading ? (
-        <ActivityIndicator color="#6C63FF" style={styles.loader} />
+        <ActivityIndicator color="#047857" style={styles.loader} />
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={d => d.id.toString()}
           renderItem={({item}) => (
-            <DeptCard
+            <DeptItem
               dept={item}
               onEdit={() => navigation.navigate('DepartmentForm', {dept: item})}
               onDelete={() => handleDelete(item)}
             />
           )}
           contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); load();}} />
-          }
           ListEmptyComponent={
             <View style={styles.empty}>
+              <MaterialCommunityIcons name="domain-off" size={40} color="#78716C" style={{marginBottom: 8}} />
               <Text style={styles.emptyText}>No departments found</Text>
             </View>
           }
@@ -114,69 +134,93 @@ export default function DepartmentListScreen({navigation}) {
 
       <FAB
         icon="plus"
-        label="Add Department"
-        style={styles.fab}
         color="#fff"
-        onPress={() => navigation.navigate('DepartmentForm', {dept: null})}
+        style={styles.fab}
+        onPress={() => navigation.navigate('DepartmentForm')}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root:    {flex: 1, backgroundColor: '#0D0E1A'},
+  root:     {flex: 1, backgroundColor: '#FBF9F5'},
   search: {
-    margin: 16,
-    backgroundColor: '#13152A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2A2C45',
-  },
-  loader:  {marginTop: 40},
-  list:    {paddingHorizontal: 16, paddingBottom: 100},
-  card: {
-    backgroundColor: '#13152A',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2A2C45',
-    overflow: 'hidden',
+    borderColor: '#EAE2D5',
     elevation: 2,
   },
-  cardHeader:    {flexDirection: 'row', padding: 16, alignItems: 'center', gap: 12},
+  loader:   {marginTop: 40},
+  list:     {paddingHorizontal: 16, paddingBottom: 80},
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EAE2D5',
+    elevation: 2,
+    shadowColor: '#78716C',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   iconBox: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFD70022',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFD70044',
+    marginRight: 12,
   },
-  icon:          {fontSize: 22},
-  cardInfo:      {flex: 1},
-  name:          {color: '#E8EAF6', fontSize: 15, fontWeight: '700'},
-  desc:          {color: '#8B8DAA', fontSize: 12, marginTop: 2},
-  radius:        {color: '#FFD700', fontSize: 11, marginTop: 2},
-  actions:       {gap: 8},
-  actionBtn:     {fontSize: 20},
-  coordsRow: {
+  info:     {flex: 1},
+  name:     {color: '#1C1917', fontSize: 16, fontWeight: '700'},
+  coords:   {color: '#78716C', fontSize: 12, marginTop: 2},
+  radius:   {color: '#047857', fontSize: 12, marginTop: 1, fontWeight: '600'},
+  desc: {
+    color: '#78716C',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  actions: {
     flexDirection: 'row',
-    backgroundColor: '#1A1C33',
+    justifyContent: 'flex-end',
+    gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#2A2C45',
+    borderTopColor: '#EAE2D5',
+    paddingTop: 10,
+    marginTop: 4,
   },
-  coordBox:      {flex: 1, padding: 12, alignItems: 'center'},
-  coordDivider:  {width: 1, backgroundColor: '#2A2C45'},
-  coordLabel:    {color: '#6B6D8A', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5},
-  coordValue:    {color: '#4CAF50', fontSize: 13, fontFamily: 'monospace', marginTop: 2},
+  actionBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#FAF7F0',
+  },
+  empty: {
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    color: '#78716C',
+    fontSize: 16,
+  },
   fab: {
     position: 'absolute',
     right: 20,
     bottom: 24,
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#047857',
+    borderRadius: 16,
+    elevation: 4,
   },
-  empty:       {alignItems: 'center', paddingTop: 60},
-  emptyText:   {color: '#8B8DAA', fontSize: 16},
 });

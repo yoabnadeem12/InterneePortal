@@ -24,6 +24,9 @@ export const login = (username, password) =>
 export const changePassword = (newPassword, oldPassword) =>
   api.post('/api/auth/change-password', {newPassword, oldPassword});
 
+// ─── Admin: Dashboard ────────────────────────────────────────────────────────
+export const getAdminDashboard  = () => api.get('/api/admin/dashboard');
+
 // ─── Admin: Departments ───────────────────────────────────────────────────────
 export const getDepartments    = () => api.get('/api/admin/departments');
 export const createDepartment  = data => api.post('/api/admin/departments', data);
@@ -41,31 +44,49 @@ export const deleteMentor     = id => api.delete(`/api/admin/mentors/${id}`);
 export const getAdminShifts   = () => api.get('/api/admin/shifts');
 export const getMentorShifts  = () => api.get('/api/mentor/shifts');
 
+// ─── Mentor: Lookup data (departments & mentors for InternFormScreen) ─────────
+export const getMentorDepartments        = () => api.get('/api/mentor/departments');
+export const getMentorsByDepartment      = deptId => api.get(`/api/mentor/departments/${deptId}/mentors`);
+
 // ─── Mentor: Interns ──────────────────────────────────────────────────────────
 export const getInterns       = () => api.get('/api/mentor/interns');
 export const getIntern        = id => api.get(`/api/mentor/interns/${id}`);
 export const createIntern     = data => api.post('/api/mentor/interns', data);
 export const updateIntern     = (id, data) => api.put(`/api/mentor/interns/${id}`, data);
 export const deleteIntern     = id => api.delete(`/api/mentor/interns/${id}`);
+export const transferIntern   = (id, data) => api.post(`/api/mentor/interns/${id}/transfer`, data);
 
 // ─── Mentor: Attendance reports ───────────────────────────────────────────────
 export const getMentorAttendance = date =>
   api.get('/api/mentor/attendance', {params: date ? {date} : {}});
 
-// ─── Mentor: Departments & Transfer ──────────────────────────────────────────
-export const getMentorDepartments = () => api.get('/api/mentor/departments');
-export const getMentorsByDepartment = deptId => api.get(`/api/mentor/departments/${deptId}/mentors`);
-export const transferIntern = (id, data) => api.post(`/api/mentor/interns/${id}/transfer`, data);
-
-// ─── Intern: Profile & Attendance ────────────────────────────────────────────
+// ─── Intern: Profile & Attendance ─────────────────────────────────────────────
 export const getInternProfile  = () => api.get('/api/intern/profile');
 export const getTodayRecord    = () => api.get('/api/intern/today');
 export const getAttendanceHistory = () => api.get('/api/intern/attendance/history');
 export const markAttendance    = data => api.post('/api/attendance/mark', data);
 
+/**
+ * Upload an attendance photo (check-in or check-out) to the server.
+ * @param {string} fileUri - local file URI from takePhoto() e.g. "file:///data/.../photo.jpg"
+ * @param {'checkin'|'checkout'} type - check-in or check-out
+ * @returns {Promise<{data: {photoUrl: string}}>} - the public URL stored on the server
+ */
+export const uploadAttendancePhoto = async (fileUri, type = 'checkin') => {
+  const formData = new FormData();
+  formData.append('photo', {
+    uri:  fileUri,
+    type: 'image/jpeg',
+    name: `${type}.jpg`,
+  });
+  return api.post(`/api/attendance/photo?type=${type}`, formData, {
+    headers: {'Content-Type': 'multipart/form-data'},
+  });
+};
+export const uploadCheckInPhoto = uploadAttendancePhoto;
+
 // ─── Intern: Face ─────────────────────────────────────────────────────────────
 export const registerFace      = faceDescriptor =>
   api.post('/api/intern/face/register', {faceDescriptor});
-export const getFaceDescriptor = () => api.get('/api/intern/face/descriptor');
 
 export default api;
